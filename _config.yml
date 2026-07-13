@@ -1,16 +1,16 @@
  title: 我的技术博客
 description: 记录学习编程的点点滴滴
-author: 您的名字
-email: 您的邮箱
-url: "https://用户名.github.io"
+author: MikiP
+email: 2294887130@qq.com
+url: "https://Ciallo168.github.io"
 
 # 主题设置
 theme: jekyll-theme-minimal
 
 # 社交链接
-github_username: 您的GitHub用户名
-twitter_username: 您的Twitter用户名
+github_username: Ciallo168
+twitter_username: Ciallo168
 
 # 构建设置
 markdown: kramdown
-permalink: /:year/:month/:day/:title/
+permalink: /:2026/:07/:13/:myblog/
