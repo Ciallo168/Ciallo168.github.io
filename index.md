@@ -3,7 +3,7 @@ layout: default
 title: 首页
 ---
 
-# 欢迎来到我的网站！
+# 你进来干甚
 
 这是我的个人网站，使用 GitHub Pages 搭建。
 
