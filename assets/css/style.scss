@@ -71,3 +71,36 @@ body {
   border-color: rgba(255,255,255,0.5);
   color: #c9d1d9;
 }
+/* ===== 全局基础字号 ===== */
+body {
+  font-size: 16px;                  /* 正文字号，默认约 16px */
+  line-height: 1.6;                 /* 行高 */
+}
+
+/* ===== 页面标题（顶部大标题）===== */
+.project-name {
+  font-size: 2.5rem;               /* 默认约 3.25rem，调小一点 */
+}
+
+.project-tagline {
+  font-size: 1.1rem;               /* 副标题字号 */
+}
+
+/* ===== 正文各级标题 ===== */
+.main-content h1 { font-size: 2rem; }     /* ## 标题 */
+.main-content h2 { font-size: 1.5rem; }   /* ### 标题 */
+.main-content h3 { font-size: 1.25rem; }  /* #### 标题 */
+
+/* ===== 代码块 ===== */
+.main-content code {
+  font-size: 0.9em;                 /* 行内代码 */
+}
+
+.main-content pre {
+  font-size: 0.85rem;               /* 代码块 */
+}
+
+/* ===== 站点页脚 ===== */
+.site-footer {
+  font-size: 0.85rem;
+}
