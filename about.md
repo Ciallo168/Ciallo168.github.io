@@ -14,5 +14,4 @@ permalink: /about/
 - 网站维护
 
 ## 联系我
-- 邮箱：2294887130@qq.com
 - GitHub：[@Ciallo168](https://github.com/Ciallo168)
