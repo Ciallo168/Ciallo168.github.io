@@ -7,7 +7,7 @@ title: 首页
 
 这是我的个人网站，使用 GitHub Pages 搭建。
 最近用途 
-- [ydk](/assets/README.md)
+- [ydk](README.md)
 
 ## 关于我
 
