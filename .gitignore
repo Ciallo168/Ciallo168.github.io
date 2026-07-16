@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Vite 开发入口文件，仅用于本地构建，不应部署到 GitHub Pages
+# 网站首页由 Jekyll 的 index.md 生成
+/index.html
