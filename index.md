@@ -7,12 +7,13 @@ title: 首页
 
 这是我的个人网站，使用 GitHub Pages 搭建。
 最近用途 
-- [ydk](README.md)
+- [YDK](README.md)
 
 ## 关于我
 
 - 郑州航空工业管理学院 人工智能专业
 - 正在学习 Python 和 AI
+- [about](about.md)
 
 ## 我的文章
 
