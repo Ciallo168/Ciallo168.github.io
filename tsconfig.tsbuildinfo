@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/components/actionbar.tsx","./src/components/decklist.tsx","./src/components/header.tsx","./src/components/mergeconfigpanel.tsx","./src/components/resultpreview.tsx","./src/components/uploadzone.tsx","./src/store/usestore.ts","./src/utils/ydkparser.ts"],"version":"5.9.3"}
