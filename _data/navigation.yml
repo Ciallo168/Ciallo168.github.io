@@ -1,10 +1,10 @@
 - name: 首页
   link: /
+- name: 卡组下载
+  link: /decks
+- name: 卡组合并
+  link: /ydk-merger/
 - name: 博客
   link: /blog.html
-- name: 项目
-  link: /projects.md
 - name: 关于
   link: /about.md
-- name: 联系
-  link: /contact.md
