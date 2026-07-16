@@ -1,0 +1,16 @@
+ title: 我的技术博客
+description: 记录学习编程的点点滴滴
+author: MikiP
+email: 2294887130@qq.com
+url: "https://Ciallo168.github.io"
+
+# 主题设置
+theme: jekyll-theme-cayman
+
+# 社交链接
+github_username: Ciallo168
+twitter_username: Ciallo168
+
+# 构建设置
+markdown: kramdown
+permalink: /:2026/:07/:13/:myblog/
