@@ -5,6 +5,7 @@ import DeckList from './components/DeckList'
 import MergeConfigPanel from './components/MergeConfigPanel'
 import ActionBar from './components/ActionBar'
 import ResultPreview from './components/ResultPreview'
+import DeckResources from './components/DeckResources'
 
 const App: FC = () => {
   return (
@@ -16,6 +17,7 @@ const App: FC = () => {
         <MergeConfigPanel />
         <ActionBar />
         <ResultPreview />
+        <DeckResources />
       </div>
 
       <footer className="mt-auto py-4 text-center text-xs text-gray-600">
