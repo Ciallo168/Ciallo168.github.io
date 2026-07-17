@@ -13,6 +13,7 @@ interface AppState {
   removeDeck: (index: number) => void
   updateConfig: (config: Partial<MergeConfig>) => void
   executeMerge: () => void
+  setMergeResult: (result: MergeResult | null) => void
   clearAll: () => void
   clearError: () => void
 }
@@ -72,6 +73,8 @@ export const useStore = create<AppState>((set, get) => ({
     const result = mergeDecks(decks, mergeConfig)
     set({ mergeResult: result, error: null })
   },
+
+  setMergeResult: (result: MergeResult | null) => set({ mergeResult: result }),
 
   clearAll: () => {
     set({
