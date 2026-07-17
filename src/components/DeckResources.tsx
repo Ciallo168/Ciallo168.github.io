@@ -1,5 +1,6 @@
-import { type FC, useState } from 'react'
-import { Package, ChevronDown, Download } from 'lucide-react'
+import { type FC, useState, useCallback } from 'react'
+import { Package, ChevronDown, Download, Plus, Check, Loader2 } from 'lucide-react'
+import { useStore } from '../store/useStore'
 
 interface DeckGroup {
   name: string
@@ -62,6 +63,41 @@ const deckGroups: DeckGroup[] = [
 
 const DeckResources: FC = () => {
   const [expanded, setExpanded] = useState(false)
+  const [addedNames, setAddedNames] = useState<Set<string>>(new Set())
+  const [loadingName, setLoadingName] = useState<string | null>(null)
+  const { addDecks } = useStore()
+
+  const handleAddToMerger = useCallback(async (groupName: string, fileName: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    if (loadingName) return
+
+    setLoadingName(fileName)
+    try {
+      const url = `./ydk-decks/${encodeURIComponent(groupName)}/${encodeURIComponent(fileName)}`
+      const resp = await fetch(url)
+      if (!resp.ok) throw new Error('加载失败')
+      const text = await resp.text()
+      const file = new File([text], fileName, { type: 'text/plain' })
+      await addDecks([file])
+
+      setAddedNames(prev => {
+        const next = new Set(prev)
+        next.add(fileName)
+        return next
+      })
+      setTimeout(() => {
+        setAddedNames(prev => {
+          const next = new Set(prev)
+          next.delete(fileName)
+          return next
+        })
+      }, 1500)
+    } catch {
+      // silently fail, user can still download manually
+    } finally {
+      setLoadingName(null)
+    }
+  }, [addDecks, loadingName])
 
   return (
     <div className="
@@ -77,8 +113,8 @@ const DeckResources: FC = () => {
       >
         <div className="flex items-center gap-2">
           <Package className="w-4 h-4 text-cyber-gold" />
-          <span>卡组资源下载</span>
-          <span className="text-xs text-gray-600">(32个文件)</span>
+          <span>卡组资源</span>
+          <span className="text-xs text-gray-600">(点击即加载，32个文件)</span>
         </div>
         <ChevronDown className={`
           w-4 h-4 transition-transform duration-300
@@ -88,30 +124,66 @@ const DeckResources: FC = () => {
 
       {expanded && (
         <div className="px-4 pb-4 space-y-3 animate-fade-in">
+          <p className="text-xs text-gray-500 leading-relaxed">
+            点击卡片名直接加载到上方合并区，或点击右侧 <Download className="w-3 h-3 inline text-gray-500" /> 下载到本地。
+          </p>
           {deckGroups.map(group => (
             <div key={group.name}>
               <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                 {group.icon} {group.name}
               </h4>
               <div className="flex flex-wrap gap-1.5">
-                {group.files.map(file => (
-                  <a
-                    key={file.name}
-                    href={`./ydk-decks/${group.name}/${file.name}`}
-                    download
-                    className="
-                      inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs
-                      bg-cyber-bg border border-cyber-border
-                      text-gray-400 hover:text-cyber-purple
-                      hover:border-cyber-purple/50 hover:bg-cyber-purple/5
-                      transition-all duration-200
-                    "
-                    title={`主卡组:${file.main} 额外:${file.extra} 备牌:${file.side}`}
-                  >
-                    <Download className="w-3 h-3" />
-                    {file.name.replace('.ydk', '')}
-                  </a>
-                ))}
+                {group.files.map(file => {
+                  const isAdded = addedNames.has(file.name)
+                  const isLoading = loadingName === file.name
+                  return (
+                    <div
+                      key={file.name}
+                      className="
+                        inline-flex items-center rounded-md text-xs
+                        bg-cyber-bg border border-cyber-border
+                        overflow-hidden transition-all duration-200
+                        hover:border-cyber-purple/50
+                      "
+                    >
+                      <button
+                        onClick={(e) => handleAddToMerger(group.name, file.name, e)}
+                        disabled={isLoading}
+                        className="
+                          inline-flex items-center gap-1 px-2.5 py-1
+                          text-gray-400 hover:text-cyber-purple
+                          hover:bg-cyber-purple/5
+                          disabled:opacity-60 disabled:cursor-wait
+                          transition-all duration-200
+                        "
+                        title={`主:${file.main} 额:${file.extra} 备:${file.side} — 点击加载到合并区`}
+                      >
+                        {isLoading ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : isAdded ? (
+                          <Check className="w-3 h-3 text-green-400" />
+                        ) : (
+                          <Plus className="w-3 h-3" />
+                        )}
+                        {file.name.replace('.ydk', '')}
+                      </button>
+                      <a
+                        href={`./ydk-decks/${group.name}/${file.name}`}
+                        download
+                        className="
+                          px-2 py-1 border-l border-cyber-border
+                          text-gray-500 hover:text-cyber-gold
+                          hover:bg-cyber-gold/5
+                          transition-all duration-200
+                        "
+                        title="下载到本地"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Download className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           ))}
