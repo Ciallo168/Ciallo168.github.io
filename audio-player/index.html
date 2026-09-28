@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>本地音乐播放器</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --card: #12121a;
+    --card-2: #17171f;
+    --border: #26262e;
+    --purple: #a855f7;
+    --cyan: #22d3ee;
+    --gold: #f59e0b;
+    --text: #e5e5e5;
+    --muted: #8888a0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(168,85,247,.12), transparent),
+      var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  .wrap { width: 100%; max-width: 860px; margin: 0 auto; padding: 20px 16px 130px; flex: 1; }
+
+  /* 面包屑 */
+  .crumb { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 18px; }
+  .crumb a {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 12px; border-radius: 8px;
+    color: var(--muted); background: var(--card); border: 1px solid var(--border);
+    text-decoration: none; transition: .25s;
+  }
+  .crumb a:hover { color: var(--purple); border-color: rgba(168,85,247,.4); box-shadow: 0 0 10px rgba(168,85,247,.15); }
+  .crumb .sep { color: #444; }
+  .crumb .cur { color: var(--purple); font-weight: 500; }
+
+  h1 {
+    text-align: center; font-size: 30px; font-weight: 700;
+    letter-spacing: 1px; margin-bottom: 4px;
+    background: linear-gradient(90deg, var(--cyan), var(--purple));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 22px; }
+
+  /* 拖放区 */
+  #dropzone {
+    border: 2px dashed var(--border); border-radius: 16px;
+    background: rgba(18,18,26,.6);
+    padding: 44px 20px; text-align: center; cursor: pointer;
+    transition: .25s;
+  }
+  #dropzone:hover, #dropzone.drag {
+    border-color: var(--purple); background: rgba(168,85,247,.07);
+    box-shadow: 0 0 30px rgba(168,85,247,.15);
+  }
+  #dropzone .icon { font-size: 42px; margin-bottom: 10px; }
+  #dropzone .t1 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  #dropzone .t2 { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  .btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 18px; border-radius: 10px; font-size: 13px;
+    border: 1px solid var(--border); background: var(--card-2); color: var(--text);
+    cursor: pointer; transition: .2s;
+  }
+  .btn:hover { border-color: var(--purple); color: var(--purple); }
+  .btn.primary { background: var(--purple); border-color: var(--purple); color: #fff; }
+  .btn.primary:hover { background: #9333ea; color: #fff; }
+  .btn.danger:hover { border-color: rgba(239,68,68,.5); color: #f87171; background: rgba(239,68,68,.06); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  input[type=file] { display: none; }
+
+  /* 播放列表 */
+  #listPanel { display: none; margin-top: 18px; }
+  .list-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .list-head .count { font-size: 13px; color: var(--muted); }
+  .list-head .count b { color: var(--cyan); font-family: ui-monospace, monospace; }
+  #search {
+    flex: 1; min-width: 160px;
+    padding: 7px 12px; border-radius: 8px; font-size: 13px;
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    outline: none; transition: .2s;
+  }
+  #search:focus { border-color: rgba(168,85,247,.6); }
+  #tracks {
+    list-style: none; border: 1px solid var(--border); border-radius: 14px;
+    background: var(--card); overflow: hidden;
+    max-height: 46vh; overflow-y: auto;
+  }
+  #tracks::-webkit-scrollbar { width: 8px; }
+  #tracks::-webkit-scrollbar-thumb { background: #2e2e3a; border-radius: 4px; }
+  .track {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; font-size: 13px; cursor: pointer;
+    border-bottom: 1px solid rgba(38,38,46,.6); transition: .15s;
+  }
+  .track:last-child { border-bottom: none; }
+  .track:hover { background: rgba(168,85,247,.06); }
+  .track.active { background: rgba(168,85,247,.12); }
+  .track.active .name { color: var(--purple); font-weight: 600; }
+  .track .idx { width: 26px; text-align: center; color: #555; font-size: 12px; font-family: ui-monospace, monospace; flex-shrink: 0; }
+  .track.active .idx { color: var(--purple); }
+  .track .eq { display: none; gap: 2px; align-items: flex-end; height: 12px; width: 26px; justify-content: center; }
+  .track.playing .eq { display: inline-flex; }
+  .track.playing .idx { display: none; }
+  .eq span { width: 3px; background: var(--purple); border-radius: 1px; animation: eq 1s ease-in-out infinite; }
+  .eq span:nth-child(1) { height: 60%; animation-delay: -.3s; }
+  .eq span:nth-child(2) { height: 100%; animation-delay: -.6s; }
+  .eq span:nth-child(3) { height: 40%; animation-delay: -.9s; }
+  @keyframes eq { 0%,100% { transform: scaleY(.4);} 50% { transform: scaleY(1);} }
+  .track .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .track .dur { color: #666; font-size: 12px; font-family: ui-monospace, monospace; flex-shrink: 0; }
+  .track .del {
+    border: none; background: none; color: #555; cursor: pointer;
+    padding: 2px 6px; border-radius: 6px; font-size: 14px; flex-shrink: 0;
+  }
+  .track .del:hover { color: #f87171; background: rgba(239,68,68,.1); }
+  .empty-tip { padding: 30px; text-align: center; color: #555; font-size: 13px; }
+
+  /* 底部播放器 */
+  #player {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: rgba(14,14,20,.92); backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    display: none;
+  }
+  .pbar { display: flex; align-items: center; gap: 10px; max-width: 860px; margin: 0 auto 6px; font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    height: 4px; border-radius: 2px; background: #2a2a35; cursor: pointer; flex: 1;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
+    background: var(--purple); box-shadow: 0 0 8px rgba(168,85,247,.6);
+  }
+  .prow { max-width: 860px; margin: 0 auto; display: flex; align-items: center; gap: 14px; }
+  .now { flex: 1; min-width: 0; }
+  .now .nm { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .now .st { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .pctrl { display: flex; align-items: center; gap: 6px; }
+  .pbtn {
+    border: none; background: none; color: var(--muted); cursor: pointer;
+    width: 38px; height: 38px; border-radius: 50%; font-size: 16px;
+    display: inline-flex; align-items: center; justify-content: center; transition: .2s;
+  }
+  .pbtn:hover { color: var(--text); background: rgba(255,255,255,.06); }
+  .pbtn.play {
+    background: var(--purple); color: #fff; width: 44px; height: 44px; font-size: 18px;
+    box-shadow: 0 0 18px rgba(168,85,247,.4);
+  }
+  .pbtn.play:hover { background: #9333ea; color: #fff; }
+  .pbtn.on { color: var(--cyan); }
+  .vol { display: flex; align-items: center; gap: 6px; width: 120px; flex-shrink: 0; }
+  .vol span { font-size: 14px; }
+  .vol input { flex: 1; }
+  @media (max-width: 560px) {
+    .vol { display: none; }
+    h1 { font-size: 24px; }
+  }
+
+  #toast {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px);
+    background: var(--card-2); border: 1px solid var(--purple); color: var(--text);
+    padding: 10px 20px; border-radius: 10px; font-size: 13px;
+    box-shadow: 0 0 20px rgba(168,85,247,.3);
+    transition: transform .3s; z-index: 99; pointer-events: none;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  footer { text-align: center; font-size: 12px; color: #444; padding: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="crumb">
+    <a href="/">🏠 首页</a>
+    <span class="sep">/</span>
+    <span class="cur">本地音乐播放器</span>
+  </nav>
+
+  <h1>🎵 Local Player</h1>
+  <p class="sub">拖入音频文件或整个文件夹即可播放 · 文件仅在本地浏览器中读取，不会上传</p>
+
+  <div id="dropzone">
+    <div class="icon">📂</div>
+    <div class="t1">将音频文件 / 文件夹拖到此处</div>
+    <div class="t2">支持 mp3、flac、wav、ogg、m4a、aac、opus 等格式</div>
+    <div class="btns">
+      <button class="btn primary" id="pickFiles">🎧 选择音频文件</button>
+      <button class="btn" id="pickFolder">📁 选择文件夹</button>
+    </div>
+  </div>
+  <input type="file" id="fileInput" multiple accept="audio/*,.mp3,.flac,.wav,.ogg,.m4a,.aac,.opus,.webm" />
+  <input type="file" id="folderInput" multiple webkitdirectory directory />
+
+  <div id="listPanel">
+    <div class="list-head">
+      <span class="count">播放列表 · <b id="count">0</b> 首</span>
+      <input type="text" id="search" placeholder="🔍 搜索曲目…" />
+      <button class="btn danger" id="clearBtn">🗑 清空列表</button>
+    </div>
+    <ul id="tracks"></ul>
+  </div>
+</div>
+
+<div id="player">
+  <div class="pbar">
+    <span id="cur">0:00</span>
+    <input type="range" id="seek" min="0" max="1000" value="0" />
+    <span id="dur">0:00</span>
+  </div>
+  <div class="prow">
+    <div class="now">
+      <div class="nm" id="npName">未在播放</div>
+      <div class="st" id="npStatus">从上方拖入文件开始</div>
+    </div>
+    <div class="pctrl">
+      <button class="pbtn" id="shuffleBtn" title="随机播放">🔀</button>
+      <button class="pbtn" id="prevBtn" title="上一首">⏮</button>
+      <button class="pbtn play" id="playBtn" title="播放/暂停">▶</button>
+      <button class="pbtn" id="nextBtn" title="下一首">⏭</button>
+      <button class="pbtn" id="repeatBtn" title="循环模式">🔁</button>
+    </div>
+    <div class="vol">
+      <span>🔊</span>
+      <input type="range" id="volume" min="0" max="100" value="100" />
+    </div>
+  </div>
+</div>
+
+<audio id="audio"></audio>
+<div id="toast"></div>
+
+<footer>Local Player · 纯本地播放 · 刷新页面后列表清空，不会留下任何文件</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  var AUDIO_EXT = /\.(mp3|flac|wav|ogg|oga|m4a|aac|opus|webm|wma|amr|3gp)$/i;
+
+  var tracks = [];      // { name, url, file, duration }
+  var current = -1;
+  var shuffle = false;
+  var repeat = 0;       // 0=列表循环 1=单曲循环 2=顺序播放(到最后停止)
+  var shuffleHistory = [];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var audio = $('audio');
+
+  /* ---------- 提示 ---------- */
+  var toastTimer;
+  function toast(msg) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+  }
+
+  /* ---------- 工具 ---------- */
+  function fmt(s) {
+    if (!isFinite(s) || s < 0) return '0:00';
+    var m = Math.floor(s / 60), sec = Math.floor(s % 60);
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+  function basename(path, name) {
+    if (name) return name.replace(/\.[^.]+$/, '');
+    var parts = String(path).replace(/\\/g, '/').split('/');
+    var f = parts[parts.length - 1];
+    return f.replace(/\.[^.]+$/, '');
+  }
+
+  /* ---------- 添加文件 ---------- */
+  function addFiles(fileList) {
+    var added = 0;
+    Array.prototype.forEach.call(fileList, function (file) {
+      var name = file.name;
+      if (!AUDIO_EXT.test(name)) return;
+      // 同名去重
+      if (tracks.some(function (t) { return t.name === name && t.file.size === file.size; })) return;
+      tracks.push({
+        name: name.replace(/\.[^.]+$/, ''),
+        fullName: name,
+        url: URL.createObjectURL(file),
+        file: file,
+        duration: null
+      });
+      added++;
+    });
+    if (added > 0) {
+      renderList();
+      toast('已添加 ' + added + ' 首曲目' + (added < fileList.length ? '（已过滤非音频文件）' : ''));
+    } else if (fileList.length > 0) {
+      toast('没有发现支持的音频文件');
+    }
+  }
+
+  /* ---------- 文件夹递归读取（拖入文件夹） ---------- */
+  function readEntries(reader) {
+    return new Promise(function (resolve) {
+      reader.readEntries(function (entries) { resolve(entries); });
+    });
+  }
+  function traverseEntry(entry, files) {
+    return new Promise(function (resolve) {
+      if (entry.isFile) {
+        entry.file(function (file) {
+          // 保留相对路径（文件夹内的层级）
+          Object.defineProperty(file, '_relPath', { value: entry.fullPath.slice(1), configurable: true });
+          files.push(file);
+          resolve();
+        }, function () { resolve(); });
+      } else if (entry.isDirectory) {
+        var reader = entry.createReader();
+        (function loop() {
+          readEntries(reader).then(function (entries) {
+            if (!entries.length) { resolve(); return; }
+            Promise.all(entries.map(function (e) { return traverseEntry(e, files); })).then(loop);
+          });
+        })();
+      } else { resolve(); }
+    });
+  }
+  async function handleDataTransfer(dt) {
+    var files = [];
+    var items = dt.items;
+    if (items && items.length && items[0].webkitGetAsEntry) {
+      var promises = [];
+      for (var i = 0; i < items.length; i++) {
+        var entry = items[i].webkitGetAsEntry();
+        if (entry) promises.push(traverseEntry(entry, files));
+      }
+      await Promise.all(promises);
+    }
+    // 兜底：直接取 files
+    if (!files.length && dt.files) {
+      for (var j = 0; j < dt.files.length; j++) files.push(dt.files[j]);
+    }
+    // 按相对路径排序，保持文件夹内顺序
+    files.sort(function (a, b) {
+      var pa = a._relPath || a.name, pb = b._relPath || b.name;
+      return pa < pb ? -1 : pa > pb ? 1 : 0;
+    });
+    addFiles(files);
+  }
+
+  /* ---------- 列表渲染 ---------- */
+  function renderList() {
+    var panel = $('listPanel'), ul = $('tracks'), kw = $('search').value.trim().toLowerCase();
+    $('count').textContent = tracks.length;
+    panel.style.display = tracks.length ? 'block' : 'none';
+    $('player').style.display = tracks.length ? 'block' : 'none';
+    ul.innerHTML = '';
+
+    var shown = 0;
+    tracks.forEach(function (t, i) {
+      if (kw && t.name.toLowerCase().indexOf(kw) === -1) return;
+      shown++;
+      var li = document.createElement('li');
+      li.className = 'track' + (i === current ? ' active' : '') + (i === current && !audio.paused ? ' playing' : '');
+      li.innerHTML =
+        '<span class="idx">' + (i + 1) + '</span>' +
+        '<span class="eq"><span></span><span></span><span></span></span>' +
+        '<span class="name"></span>' +
+        '<span class="dur">' + (t.duration ? fmt(t.duration) : '–:–') + '</span>' +
+        '<button class="del" title="移除">✕</button>';
+      li.querySelector('.name').textContent = t.fullName;
+      li.addEventListener('click', function (e) {
+        if (e.target.classList.contains('del')) {
+          removeTrack(i);
+        } else {
+          playAt(i);
+        }
+      });
+      ul.appendChild(li);
+
+      // 异步读取时长
+      if (!t.duration) readDuration(t);
+    });
+    if (!shown && kw) {
+      ul.innerHTML = '<div class="empty-tip">没有匹配「' + $('search').value + '」的曲目</div>';
+    }
+  }
+
+  function readDuration(t) {
+    var url = t.url;
+    var a = new Audio();
+    a.preload = 'metadata';
+    a.src = url;
+    a.addEventListener('loadedmetadata', function () {
+      t.duration = a.duration;
+      if (tracks.indexOf(t) !== -1) {
+        var idx = tracks.indexOf(t);
+        var li = $('tracks').children[idx];
+        // 搜索过滤时索引可能不对应，安全起见整体刷新该文本
+        renderList();
+      }
+      a.src = '';
+    });
+    a.addEventListener('error', function () { a.src = ''; });
+  }
+
+  function removeTrack(i) {
+    URL.revokeObjectURL(tracks[i].url);
+    tracks.splice(i, 1);
+    if (i === current) {
+      if (tracks.length === 0) {
+        current = -1;
+        audio.pause();
+        audio.src = '';
+        updateNowPlaying();
+      } else {
+        current = current >= tracks.length ? tracks.length - 1 : current;
+        playAt(current);
+      }
+    } else if (i < current) {
+      current--;
+    }
+    renderList();
+  }
+
+  /* ---------- 播放控制 ---------- */
+  function playAt(i) {
+    if (i < 0 || i >= tracks.length) return;
+    current = i;
+    audio.src = tracks[i].url;
+    audio.play().catch(function () {});
+    updateNowPlaying();
+    renderList();
+  }
+  function updateNowPlaying() {
+    if (current >= 0 && tracks[current]) {
+      $('npName').textContent = tracks[current].fullName;
+      $('npStatus').textContent = '第 ' + (current + 1) + ' / ' + tracks.length + ' 首';
+      $('playBtn').textContent = audio.paused ? '▶' : '⏸';
+    } else {
+      $('npName').textContent = '未在播放';
+      $('npStatus').textContent = '从上方拖入文件开始';
+      $('playBtn').textContent = '▶';
+      $('cur').textContent = '0:00';
+      $('dur').textContent = '0:00';
+      $('seek').value = 0;
+    }
+  }
+  function pickNext(manual) {
+    if (!tracks.length) return -1;
+    if (shuffle) {
+      if (manual) {
+        var next;
+        do { next = Math.floor(Math.random() * tracks.length); }
+        while (tracks.length > 1 && next === current);
+        return next;
+      }
+      return Math.floor(Math.random() * tracks.length);
+    }
+    return current + 1;
+  }
+  function next(manual) {
+    if (repeat === 1 && !manual) { playAt(current); return; }
+    var n = pickNext(manual);
+    if (n >= tracks.length) {
+      if (repeat === 2) { audio.pause(); updateNowPlaying(); return; } // 顺序播放结束
+      playAt(0);
+      return;
+    }
+    playAt(n);
+  }
+  function prev() {
+    if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+    var p = shuffle ? Math.floor(Math.random() * tracks.length) : current - 1;
+    if (p < 0) p = tracks.length - 1;
+    playAt(p);
+  }
+
+  /* ---------- 音频事件 ---------- */
+  audio.addEventListener('play', function () { $('playBtn').textContent = '⏸'; renderList(); });
+  audio.addEventListener('pause', function () { $('playBtn').textContent = '▶'; renderList(); updateNowPlaying(); });
+  audio.addEventListener('loadedmetadata', function () {
+    $('dur').textContent = fmt(audio.duration);
+    if (current >= 0 && tracks[current]) { tracks[current].duration = audio.duration; renderList(); }
+  });
+  audio.addEventListener('timeupdate', function () {
+    $('cur').textContent = fmt(audio.currentTime);
+    if (audio.duration) $('seek').value = Math.round(audio.currentTime / audio.duration * 1000);
+  });
+  audio.addEventListener('ended', function () { next(false); });
+  audio.addEventListener('error', function () {
+    if (current >= 0 && tracks[current]) toast('无法播放：' + tracks[current].fullName);
+  });
+
+  $('playBtn').addEventListener('click', function () {
+    if (!tracks.length) return;
+    if (current === -1) { playAt(0); return; }
+    if (audio.paused) audio.play(); else audio.pause();
+  });
+  $('nextBtn').addEventListener('click', function () { next(true); });
+  $('prevBtn').addEventListener('click', function () { prev(); });
+
+  $('shuffleBtn').addEventListener('click', function () {
+    shuffle = !shuffle;
+    this.classList.toggle('on', shuffle);
+    toast(shuffle ? '🔀 随机播放：开' : '随机播放：关');
+  });
+  $('repeatBtn').addEventListener('click', function () {
+    repeat = (repeat + 1) % 3;
+    var labels = ['🔁 列表循环', '🔂 单曲循环', '➡️ 顺序播放'];
+    this.textContent = ['🔁', '🔂', '➡️'][repeat];
+    this.classList.toggle('on', repeat !== 2);
+    toast(labels[repeat]);
+  });
+
+  $('seek').addEventListener('input', function () {
+    if (audio.duration) audio.currentTime = this.value / 1000 * audio.duration;
+  });
+  $('volume').addEventListener('input', function () { audio.volume = this.value / 100; });
+
+  /* ---------- 拖放 ---------- */
+  var dragDepth = 0;
+  var dz = $('dropzone');
+  window.addEventListener('dragenter', function (e) {
+    e.preventDefault();
+    dragDepth++;
+    dz.classList.add('drag');
+  });
+  window.addEventListener('dragover', function (e) { e.preventDefault(); });
+  window.addEventListener('dragleave', function (e) {
+    dragDepth--;
+    if (dragDepth <= 0) { dragDepth = 0; dz.classList.remove('drag'); }
+  });
+  window.addEventListener('drop', function (e) {
+    e.preventDefault();
+    dragDepth = 0;
+    dz.classList.remove('drag');
+    if (e.dataTransfer) handleDataTransfer(e.dataTransfer);
+  });
+
+  /* ---------- 按钮 / 输入 ---------- */
+  dz.addEventListener('click', function (e) {
+    if (e.target.closest('.btn')) return;
+    $('fileInput').click();
+  });
+  $('pickFiles').addEventListener('click', function (e) { e.stopPropagation(); $('fileInput').click(); });
+  $('pickFolder').addEventListener('click', function (e) { e.stopPropagation(); $('folderInput').click(); });
+  $('fileInput').addEventListener('change', function () { addFiles(this.files); this.value = ''; });
+  $('folderInput').addEventListener('change', function () { addFiles(this.files); this.value = ''; });
+  $('search').addEventListener('input', renderList);
+  $('clearBtn').addEventListener('click', function () {
+    tracks.forEach(function (t) { URL.revokeObjectURL(t.url); });
+    tracks = [];
+    current = -1;
+    audio.pause();
+    audio.src = '';
+    $('search').value = '';
+    renderList();
+    updateNowPlaying();
+    toast('列表已清空');
+  });
+
+  /* ---------- 键盘快捷键 ---------- */
+  document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.code === 'Space') { e.preventDefault(); $('playBtn').click(); }
+    if (e.code === 'ArrowRight' && e.ctrlKey) next(true);
+    if (e.code === 'ArrowLeft' && e.ctrlKey) prev();
+  });
+})();
+</script>
+</body>
+</html>
