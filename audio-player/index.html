@@ -91,20 +91,29 @@
   }
   #search:focus { border-color: rgba(168,85,247,.6); }
   #tracks {
-    list-style: none; border: 1px solid var(--border); border-radius: 14px;
-    background: var(--card); overflow: hidden;
-    max-height: 46vh; overflow-y: auto;
+    list-style: none;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    max-height: 52vh;
+    overflow-y: auto;
+    padding: 2px;
   }
   #tracks::-webkit-scrollbar { width: 8px; }
   #tracks::-webkit-scrollbar-thumb { background: #2e2e3a; border-radius: 4px; }
+  @media (min-width: 620px) {
+    #tracks { grid-template-columns: 1fr 1fr; }
+  }
   .track {
     display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px; font-size: 13px; cursor: pointer;
-    border-bottom: 1px solid rgba(38,38,46,.6); transition: .15s;
+    min-width: 0;
+    padding: 10px 12px; font-size: 13px; cursor: pointer;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--card);
+    transition: .15s;
   }
-  .track:last-child { border-bottom: none; }
-  .track:hover { background: rgba(168,85,247,.06); }
-  .track.active { background: rgba(168,85,247,.12); }
+  .track:hover { border-color: rgba(168,85,247,.4); background: rgba(168,85,247,.06); }
+  .track.active { border-color: rgba(168,85,247,.5); background: rgba(168,85,247,.12); }
   .track.active .name { color: var(--purple); font-weight: 600; }
   .track .idx { width: 26px; text-align: center; color: #555; font-size: 12px; font-family: ui-monospace, monospace; flex-shrink: 0; }
   .track.active .idx { color: var(--purple); }
@@ -116,7 +125,7 @@
   .eq span:nth-child(2) { height: 100%; animation-delay: -.6s; }
   .eq span:nth-child(3) { height: 40%; animation-delay: -.9s; }
   @keyframes eq { 0%,100% { transform: scaleY(.4);} 50% { transform: scaleY(1);} }
-  .track .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .track .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .track .dur { color: #666; font-size: 12px; font-family: ui-monospace, monospace; flex-shrink: 0; }
   .track .del {
     border: none; background: none; color: #555; cursor: pointer;
@@ -166,6 +175,14 @@
     .vol { display: none; }
     h1 { font-size: 24px; }
   }
+  #mobileTip { display: none; margin-top: 12px; font-size: 12px; color: var(--cyan); }
+  /* 触屏设备（手机）不支持选择文件夹，隐藏该入口并提示多选 */
+  @media (hover: none) and (pointer: coarse) {
+    #pickFolder { display: none; }
+    #desktopHint { display: none; }
+    #mobileTip { display: block; }
+  }
+  .empty-tip { grid-column: 1 / -1; }
 
   #toast {
     position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px);
@@ -192,11 +209,12 @@
   <div id="dropzone">
     <div class="icon">📂</div>
     <div class="t1">将音频文件 / 文件夹拖到此处</div>
-    <div class="t2">支持 mp3、flac、wav、ogg、m4a、aac、opus 等格式</div>
+    <div class="t2" id="desktopHint">支持 mp3、flac、wav、ogg、m4a、aac、opus 等格式</div>
     <div class="btns">
       <button class="btn primary" id="pickFiles">🎧 选择音频文件</button>
       <button class="btn" id="pickFolder">📁 选择文件夹</button>
     </div>
+    <div id="mobileTip">手机端不支持选择文件夹，请点上方按钮一次多选音频文件</div>
   </div>
   <input type="file" id="fileInput" multiple accept="audio/*,.mp3,.flac,.wav,.ogg,.m4a,.aac,.opus,.webm" />
   <input type="file" id="folderInput" multiple webkitdirectory directory />
@@ -250,7 +268,7 @@
   var tracks = [];      // { name, url, file, duration }
   var current = -1;
   var shuffle = false;
-  var repeat = 0;       // 0=列表循环 1=单曲循环 2=顺序播放(到最后停止)
+  var repeat = 0;       // 0=列表循环 1=单曲循环 2=顺序播放(到最后停止) 3=单曲播放一次(播完即停)
   var shuffleHistory = [];
 
   var $ = function (id) { return document.getElementById(id); };
@@ -492,7 +510,19 @@
     $('cur').textContent = fmt(audio.currentTime);
     if (audio.duration) $('seek').value = Math.round(audio.currentTime / audio.duration * 1000);
   });
-  audio.addEventListener('ended', function () { next(false); });
+  audio.addEventListener('ended', function () {
+    if (repeat === 3) {
+      // 单曲播放一次：播完当前歌曲即停止，不自动切歌
+      audio.pause();
+      audio.currentTime = 0;
+      $('seek').value = 0;
+      $('cur').textContent = '0:00';
+      updateNowPlaying();
+      renderList();
+      return;
+    }
+    next(false);
+  });
   audio.addEventListener('error', function () {
     if (current >= 0 && tracks[current]) toast('无法播放：' + tracks[current].fullName);
   });
@@ -511,10 +541,11 @@
     toast(shuffle ? '🔀 随机播放：开' : '随机播放：关');
   });
   $('repeatBtn').addEventListener('click', function () {
-    repeat = (repeat + 1) % 3;
-    var labels = ['🔁 列表循环', '🔂 单曲循环', '➡️ 顺序播放'];
-    this.textContent = ['🔁', '🔂', '➡️'][repeat];
-    this.classList.toggle('on', repeat !== 2);
+    repeat = (repeat + 1) % 4;
+    var labels = ['🔁 列表循环', '🔂 单曲循环', '➡️ 顺序播放（播完列表停止）', '1️⃣ 单曲播放一次（播完即停）'];
+    this.textContent = ['🔁', '🔂', '➡️', '1️⃣'][repeat];
+    this.title = labels[repeat].replace(/^\S+\s/, '');
+    this.classList.toggle('on', repeat === 0 || repeat === 1);
     toast(labels[repeat]);
   });
 
