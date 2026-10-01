@@ -6,6 +6,8 @@
   link: /ydk-merger/
 - name: 音乐播放
   link: /audio-player/
+- name: 提取音频
+  link: /audio-extractor/
 - name: 博客
   link: /blog.html
 - name: 关于
