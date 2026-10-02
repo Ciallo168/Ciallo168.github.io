@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MP3 环绕音处理</title>
+<style>
+  :root {
+    --bg: #0a0a0f; --card: #12121a; --card-2: #17171f; --border: #26262e;
+    --purple: #a855f7; --cyan: #22d3ee; --gold: #f59e0b; --green: #34d399;
+    --text: #e5e5e5; --muted: #8888a0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(34,211,238,.10), transparent),
+               radial-gradient(ellipse 60% 40% at 80% 110%, rgba(168,85,247,.10), transparent), var(--bg);
+    color: var(--text); min-height: 100vh; display: flex; flex-direction: column;
+  }
+  .wrap { width: 100%; max-width: 880px; margin: 0 auto; padding: 20px 16px 40px; flex: 1; }
+
+  .crumb { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 18px; }
+  .crumb a {
+    display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: 8px;
+    color: var(--muted); background: var(--card); border: 1px solid var(--border); text-decoration: none; transition: .25s;
+  }
+  .crumb a:hover { color: var(--cyan); border-color: rgba(34,211,238,.4); box-shadow: 0 0 10px rgba(34,211,238,.15); }
+  .crumb .sep { color: #444; } .crumb .cur { color: var(--cyan); font-weight: 500; }
+
+  h1 {
+    text-align: center; font-size: 30px; font-weight: 700; letter-spacing: 1px; margin-bottom: 4px;
+    background: linear-gradient(90deg, var(--cyan), var(--purple));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 22px; }
+
+  #dropzone {
+    border: 2px dashed var(--border); border-radius: 16px; background: rgba(18,18,26,.6);
+    padding: 36px 20px; text-align: center; cursor: pointer; transition: .25s;
+  }
+  #dropzone:hover, #dropzone.drag { border-color: var(--cyan); background: rgba(34,211,238,.06); box-shadow: 0 0 30px rgba(34,211,238,.14); }
+  #dropzone .icon { font-size: 40px; margin-bottom: 10px; }
+  #dropzone .t1 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  #dropzone .t2 { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 18px; border-radius: 10px; font-size: 13px;
+    border: 1px solid var(--border); background: var(--card-2); color: var(--text); cursor: pointer; transition: .2s;
+  }
+  .btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  .btn.primary { background: var(--purple); border-color: var(--purple); color: #fff; }
+  .btn.primary:hover { background: #9333ea; color: #fff; }
+  .btn.gold { background: var(--gold); border-color: var(--gold); color: #0a0a0f; font-weight: 600; }
+  .btn.gold:hover { background: #d97706; color: #0a0a0f; }
+  .btn.green { background: var(--green); border-color: var(--green); color: #052e22; font-weight: 600; }
+  .btn.green:hover { background: #10b981; color: #052e22; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn.sm { padding: 6px 12px; font-size: 12px; }
+  input[type=file] { display: none; }
+
+  #panel { display: none; margin-top: 18px; }
+  .card {
+    border: 1px solid var(--border); border-radius: 14px; background: var(--card);
+    padding: 16px; margin-bottom: 14px;
+  }
+  .card h3 { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 12px; letter-spacing: .5px; }
+
+  /* 播放器 */
+  .fname { font-size: 14px; font-weight: 600; margin-bottom: 12px; word-break: break-all; }
+  .pcontrols { display: flex; align-items: center; gap: 12px; }
+  .playbtn {
+    width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+    border: none; background: linear-gradient(135deg, var(--cyan), var(--purple));
+    color: #0a0a0f; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 16px rgba(34,211,238,.25);
+  }
+  .times { flex: 1; min-width: 0; }
+  .time-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 5px; font-family: ui-monospace, monospace; }
+  input[type=range].seek {
+    width: 100%; -webkit-appearance: none; height: 6px; border-radius: 3px; outline: none;
+    background: #262630; cursor: pointer;
+  }
+  input[type=range].seek::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--cyan); box-shadow: 0 0 8px rgba(34,211,238,.6);
+  }
+  /* 时段标记条 */
+  .marks { position: relative; height: 5px; border-radius: 3px; background: #262630; margin-top: 8px; overflow: hidden; }
+  .marks .mk { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, rgba(168,85,247,.55), rgba(34,211,238,.55)); border-radius: 2px; }
+  .surround-badge {
+    display: none; font-size: 11px; padding: 3px 10px; border-radius: 20px;
+    background: rgba(168,85,247,.15); border: 1px solid rgba(168,85,247,.4); color: var(--purple);
+    white-space: nowrap;
+  }
+  .surround-badge.on { display: inline-block; animation: pulse 1s infinite alternate; }
+  @keyframes pulse { from { box-shadow: 0 0 4px rgba(168,85,247,.3); } to { box-shadow: 0 0 14px rgba(168,85,247,.6); } }
+
+  /* 方式选择 */
+  .modes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .mode {
+    border: 1px solid var(--border); border-radius: 10px; background: var(--card-2);
+    padding: 11px 8px; text-align: center; cursor: pointer; transition: .2s;
+  }
+  .mode .mi { font-size: 20px; display: block; margin-bottom: 5px; }
+  .mode .mn { font-size: 12px; color: var(--muted); }
+  .mode:hover { border-color: rgba(34,211,238,.4); }
+  .mode.active { border-color: var(--cyan); background: rgba(34,211,238,.08); box-shadow: 0 0 12px rgba(34,211,238,.14); }
+  .mode.active .mn { color: var(--cyan); font-weight: 600; }
+
+  .sliders { display: flex; flex-wrap: wrap; gap: 22px; margin-top: 14px; }
+  .slider-item { flex: 1; min-width: 200px; }
+  .slider-item label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 7px; }
+  .slider-item label b { color: var(--cyan); font-family: ui-monospace, monospace; }
+  input[type=range].rng {
+    width: 100%; -webkit-appearance: none; height: 4px; border-radius: 2px; outline: none;
+    background: #262630;
+  }
+  input[type=range].rng::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
+    background: var(--purple); cursor: pointer; box-shadow: 0 0 8px rgba(168,85,247,.6);
+  }
+
+  /* 时段列表 */
+  .seg-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .seg-row input {
+    width: 92px; padding: 7px 10px; border-radius: 8px; font-size: 13px; text-align: center;
+    background: var(--card-2); border: 1px solid var(--border); color: var(--text); outline: none;
+    font-family: ui-monospace, monospace;
+  }
+  .seg-row input:focus { border-color: var(--purple); }
+  .seg-row .tilde { color: var(--muted); }
+  .seg-row .setcur { font-size: 11px; padding: 6px 8px; }
+  .seg-row .sdel {
+    border: none; background: none; color: #555; font-size: 15px; cursor: pointer; padding: 4px 8px; border-radius: 6px;
+  }
+  .seg-row .sdel:hover { color: #f87171; background: rgba(239,68,68,.1); }
+  .seg-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .empty-seg { font-size: 12px; color: #555; padding: 6px 0 2px; }
+  .segerr { display: none; font-size: 12px; color: #f87171; margin-top: 8px; }
+
+  .export-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  #progress { display: none; margin-top: 14px; }
+  .pbar-box { height: 6px; border-radius: 3px; background: #2a2a35; overflow: hidden; }
+  .pbar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--purple)); transition: width .2s; }
+  .ptext { font-size: 12px; color: var(--muted); margin-top: 7px; }
+
+  .hint { font-size: 12px; color: #555; line-height: 1.8; margin-top: 16px; }
+  .hint b { color: var(--cyan); }
+  footer { text-align: center; font-size: 12px; color: #444; padding: 16px; }
+  #toast {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px);
+    background: var(--card-2); border: 1px solid var(--cyan); color: var(--text);
+    padding: 10px 20px; border-radius: 10px; font-size: 13px;
+    box-shadow: 0 0 20px rgba(34,211,238,.3); transition: transform .3s; z-index: 99; pointer-events: none;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="crumb">
+    <a href="/">🏠 首页</a>
+    <span class="sep">/</span>
+    <span class="cur">环绕音处理</span>
+  </nav>
+
+  <h1>🎧 MP3 环绕音处理</h1>
+  <p class="sub">指定时间段，让声音在耳机中 360° 环绕移动 · 纯本地处理，文件不上传 · 建议佩戴耳机</p>
+
+  <div id="dropzone">
+    <div class="icon">🎵</div>
+    <div class="t1">将音频文件拖到此处</div>
+    <div class="t2">支持 mp3、wav、m4a、ogg、flac 等浏览器可解码的音频</div>
+    <button class="btn primary" id="pickBtn">📁 选择音频文件</button>
+  </div>
+  <input type="file" id="fileInput" accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac,.aac" />
+
+  <div id="panel">
+    <!-- 试听播放器 -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <div class="fname" id="fName" style="margin:0;">-</div>
+        <span class="surround-badge" id="sBadge">🌀 环绕中</span>
+      </div>
+      <div class="pcontrols" style="margin-top:12px;">
+        <button class="playbtn" id="playBtn">▶</button>
+        <div class="times">
+          <input type="range" class="seek" id="seek" min="0" max="1000" value="0" step="1" />
+          <div class="marks" id="marks"></div>
+          <div class="time-row"><span id="curT">0:00</span><span id="durT">0:00</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 环绕方式 -->
+    <div class="card">
+      <h3>🌀 环绕方式</h3>
+      <div class="modes" id="modes">
+        <div class="mode active" data-mode="circle"><span class="mi">🔄</span><span class="mn">360° 环绕</span></div>
+        <div class="mode" data-mode="swing"><span class="mi">↔️</span><span class="mn">左右摇摆</span></div>
+        <div class="mode" data-mode="forward"><span class="mi">↕️</span><span class="mn">前后穿梭</span></div>
+        <div class="mode" data-mode="figure8"><span class="mi">∞</span><span class="mn">8 字环绕</span></div>
+        <div class="mode" data-mode="vertical"><span class="mi">⤴️</span><span class="mn">垂直环绕</span></div>
+      </div>
+      <div class="sliders">
+        <div class="slider-item">
+          <label>环绕周期（转一圈耗时）<b id="periodVal">3.0 s</b></label>
+          <input type="range" class="rng" id="period" min="0.8" max="10" step="0.1" value="3" />
+        </div>
+        <div class="slider-item">
+          <label>环绕半径（空间感强度）<b id="radiusVal">1.2</b></label>
+          <input type="range" class="rng" id="radius" min="0.4" max="2.5" step="0.1" value="1.2" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 时段设置 -->
+    <div class="card">
+      <h3>⏱️ 环绕时间段（格式 分:秒，如 0:30）</h3>
+      <div id="segList"></div>
+      <div class="segerr" id="segErr"></div>
+      <div class="seg-actions">
+        <button class="btn sm" id="addSeg">➕ 添加时间段</button>
+        <button class="btn sm" id="wholeSeg">↔️ 应用到整首</button>
+      </div>
+    </div>
+
+    <!-- 导出 -->
+    <div class="card">
+      <h3>💾 导出处理后的音频</h3>
+      <div class="export-row">
+        <button class="btn gold" id="exportWav">导出 WAV（无损）</button>
+        <button class="btn primary" id="exportMp3">导出 MP3（192kbps）</button>
+      </div>
+      <div id="progress">
+        <div class="pbar-box"><div class="pbar-fill" id="pbarFill"></div></div>
+        <div class="ptext" id="ptext">渲染中…</div>
+      </div>
+    </div>
+
+    <div class="hint">
+      <b>说明：</b>基于 Web Audio 的 HRTF 空间音频，声音在 3D 空间中围绕头部运动，<b>请戴耳机</b>体验。只有标记的时间段会产生环绕移动，其余部分保持正常声像。多时间段之间请不要重叠。WAV 无损无需联网；MP3 需联网加载编码库。
+    </div>
+  </div>
+</div>
+
+<footer>MP3 环绕音处理 · 纯本地处理 · 刷新后不保留任何文件</footer>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var MEDIA_EXT = /\.(mp3|wav|m4a|ogg|oga|flac|opus|aac|webm|mp4)$/i;
+  var LAME_URLS = [
+    'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js',
+    'https://unpkg.com/lamejs@1.2.1/lame.min.js'
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- 状态 ---------- */
+  var audioBuffer = null;
+  var fileName = '';
+  var mode = 'circle';
+  var segments = [];          // { start, end }（秒）
+  var period = 3, radius = 1.2;
+  var exporting = false;
+
+  /* ---------- toast ---------- */
+  var toastTimer;
+  function toast(msg) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2600);
+  }
+
+  function fmtTime(s) {
+    if (!isFinite(s) || s < 0) s = 0;
+    var m = Math.floor(s / 60), sec = Math.floor(s % 60);
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+  // 支持 "m:ss" / "ss" / "m:ss.s"
+  function parseTime(str) {
+    str = String(str).trim();
+    if (!str) return NaN;
+    var parts = str.split(':');
+    if (parts.length === 1) return parseFloat(parts[0]);
+    if (parts.length === 2) return parseInt(parts[0], 10) * 60 + parseFloat(parts[1]);
+    return NaN;
+  }
+
+  /* ---------- 环绕位置计算 ----------
+   * phase: 相位（弧度）；r: 半径；返回 {x,y,z}
+   * 听者位于原点、面朝 -z；静止声像在正前方 (0,0,-r)
+   */
+  function positionAt(m, phase, r) {
+    var s = Math.sin(phase), c = Math.cos(phase);
+    switch (m) {
+      case 'swing':    return { x: r * s, y: 0, z: -r };
+      case 'forward':  return { x: 0, y: 0, z: -r * c };
+      case 'figure8':  return { x: r * s, y: 0, z: -r * Math.cos(2 * phase) };
+      case 'vertical': return { x: 0, y: r * s, z: -r * c };
+      case 'circle':
+      default:         return { x: r * s, y: 0, z: -r * c };
+    }
+  }
+
+  // 时间 t 落在哪个时段，返回该时段（含相对经过秒数），否则 null
+  function activeSegment(t) {
+    for (var i = 0; i < segments.length; i++) {
+      var g = segments[i];
+      if (t >= g.start && t < g.end) return { seg: g, elapsed: t - g.start };
+    }
+    return null;
+  }
+
+  // 校验并排序时段；返回错误字符串或 null
+  function validateSegments(dur) {
+    var gs = [];
+    for (var i = 0; i < segments.length; i++) {
+      var s = parseTime(segments[i].startInput), e = parseTime(segments[i].endInput);
+      if (!isFinite(s) || !isFinite(e)) return '第 ' + (i + 1) + ' 个时间段格式不正确';
+      if (s < 0 || e < 0) return '第 ' + (i + 1) + ' 个时间段不能为负数';
+      if (e <= s) return '第 ' + (i + 1) + ' 个时间段结束时间必须大于开始时间';
+      if (e > dur + 0.01) return '第 ' + (i + 1) + ' 个时间段超出音频时长（' + fmtTime(dur) + '）';
+      gs.push({ start: s, end: e });
+    }
+    gs.sort(function (a, b) { return a.start - b.start; });
+    for (var j = 1; j < gs.length; j++) {
+      if (gs[j].start < gs[j - 1].end - 1e-6) return '时间段存在重叠，请调整';
+      if (gs[j].start - gs[j - 1].end < 0.06) return '相邻时间段间隔太短（至少留 0.1 秒间隙）';
+    }
+    segments = gs.map(function (g) {
+      return { start: g.start, end: g.end, startInput: fmtTime(g.start), endInput: fmtTime(g.end) };
+    });
+    return null;
+  }
+
+  /* ---------- Panner 公共配置 ---------- */
+  function makePanner(ctx) {
+    var p = ctx.createPanner();
+    p.panningModel = 'HRTF';
+    p.distanceModel = 'inverse';
+    p.refDistance = 1;
+    p.rolloffFactor = 0.35;
+    p.maxDistance = 100;
+    if (p.positionX) {
+      p.positionX.value = 0; p.positionY.value = 0; p.positionZ.value = -radius;
+    } else {
+      p.setPosition(0, 0, -radius);   // 旧 Safari
+    }
+    return p;
+  }
+
+  /* ---------- 文件加载 / 解码 ---------- */
+  function loadFile(file) {
+    if (!MEDIA_EXT.test(file.name)) { toast('不支持的文件类型'); return; }
+    $('fName').textContent = '正在解码：' + file.name;
+    var fr = new FileReader();
+    fr.onload = function () {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      var ctx0 = new AC();
+      ctx0.decodeAudioData(fr.result, function (buf) {
+        ctx0.close();
+        audioBuffer = buf;
+        fileName = file.name.replace(/\.[^.]+$/, '');
+        $('fName').textContent = file.name;
+        $('durT').textContent = fmtTime(buf.duration);
+        $('panel').style.display = 'block';
+        if (!segments.length) addSegment(0, Math.min(10, buf.duration));
+        renderSegments();
+        renderMarks();
+        toast('音频加载成功，时长 ' + fmtTime(buf.duration));
+      }, function () {
+        ctx0.close();
+        toast('无法解码该音频，请更换文件');
+        $('fName').textContent = '-';
+      });
+    };
+    fr.readAsArrayBuffer(file);
+  }
+
+  /* ================= 实时试听 ================= */
+  var actx = null, liveSrc = null, livePanner = null, liveComp = null, liveGain = null;
+  var isPlaying = false;
+  var startedAt = 0, startOffset = 0, rafId = null, playToken = 0;
+
+  function ensureLiveGraph() {
+    if (actx) return;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    actx = new AC();
+    liveComp = actx.createDynamicsCompressor();
+    liveGain = actx.createGain();
+    liveGain.gain.value = 0.9;
+    liveComp.connect(liveGain);
+    liveGain.connect(actx.destination);
+  }
+
+  function currentTime() {
+    if (!isPlaying) return startOffset;
+    return Math.min(audioBuffer.duration, startOffset + actx.currentTime - startedAt);
+  }
+
+  function play() {
+    if (!audioBuffer || isPlaying) return;
+    ensureLiveGraph();
+    var offset = startOffset >= audioBuffer.duration ? 0 : startOffset;
+    startOffset = offset;
+    playToken++;
+    var myToken = playToken;
+    // 必须等 resume 完成再 start，否则在 suspended 上下文里音源会立即异常结束
+    Promise.resolve(actx.resume()).then(function () {
+      if (myToken !== playToken) return;      // 等待期间用户已暂停/重新播放
+      liveSrc = actx.createBufferSource();
+      liveSrc.buffer = audioBuffer;
+      livePanner = makePanner(actx);
+      liveSrc.connect(livePanner);
+      livePanner.connect(liveComp);
+      liveSrc.start(0, offset);
+      startedAt = actx.currentTime;
+      isPlaying = true;
+      $('playBtn').textContent = '⏸';
+      liveSrc.onended = function () {
+        if (!isPlaying) return;
+        stop(true);
+        startOffset = 0;
+        updateSeekUI();
+      };
+      tick();
+    });
+  }
+
+  function pause() {
+    playToken++;                               // 使尚未开始的播放失效
+    if (!isPlaying) return;
+    startOffset = currentTime();
+    stop(false);
+  }
+
+  function stop(finished) {
+    isPlaying = false;
+    cancelAnimationFrame(rafId);
+    if (liveSrc) { try { liveSrc.onended = null; liveSrc.stop(); } catch (e) {} liveSrc.disconnect(); liveSrc = null; }
+    if (livePanner) { livePanner.disconnect(); livePanner = null; }
+    $('playBtn').textContent = '▶';
+    $('sBadge').classList.remove('on');
+    if (!finished) updateSeekUI();
+  }
+
+  function seekTo(t) {
+    if (!audioBuffer) return;
+    startOffset = Math.max(0, Math.min(audioBuffer.duration, t));
+    if (isPlaying) {
+      stop(false);
+      play();
+    } else {
+      updateSeekUI();
+    }
+  }
+
+  function setPannerPos(p, pos) {
+    if (p.positionX) {
+      p.positionX.setTargetAtTime(pos.x, actx.currentTime, 0.02);
+      p.positionY.setTargetAtTime(pos.y, actx.currentTime, 0.02);
+      p.positionZ.setTargetAtTime(pos.z, actx.currentTime, 0.02);
+    } else {
+      p.setPosition(pos.x, pos.y, pos.z);
+    }
+  }
+
+  function tick() {
+    if (!isPlaying) return;
+    var t = currentTime();
+    updateSeekUI(t);
+    var hit = activeSegment(t);
+    if (hit && livePanner) {
+      var ph = (hit.elapsed / period) * Math.PI * 2;
+      setPannerPos(livePanner, positionAt(mode, ph, radius));
+      $('sBadge').classList.add('on');
+    } else {
+      if (livePanner) setPannerPos(livePanner, { x: 0, y: 0, z: -radius });
+      $('sBadge').classList.remove('on');
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function updateSeekUI(t) {
+    if (t === undefined) t = startOffset;
+    $('curT').textContent = fmtTime(t);
+    $('seek').value = audioBuffer ? Math.round((t / audioBuffer.duration) * 1000) : 0;
+  }
+
+  /* ================= 离线渲染导出 ================= */
+  function buildRenderContext() {
+    var dur = audioBuffer.duration;
+    var err = validateSegments(dur);
+    if (err) return Promise.reject(new Error(err));
+    renderSegments();
+    renderMarks();
+
+    var OffAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    var off = new OffAC(2, Math.ceil(audioBuffer.length * (44100 / audioBuffer.sampleRate)), 44100);
+    // 若源采样率与目标一致，直接用原 length 更精确
+    if (audioBuffer.sampleRate === 44100) {
+      off = new OffAC(2, audioBuffer.length, audioBuffer.sampleRate);
+    }
+
+    var src = off.createBufferSource();
+    src.buffer = audioBuffer;
+    var p = makePanner(off);
+    var comp = off.createDynamicsCompressor();
+    var g = off.createGain();
+    g.gain.value = 0.9;
+    src.connect(p); p.connect(comp); comp.connect(g); g.connect(off.destination);
+
+    // 初始位置（正前方）
+    p.positionX.setValueAtTime(0, 0);
+    p.positionY.setValueAtTime(0, 0);
+    p.positionZ.setValueAtTime(-radius, 0);
+
+    var STEP = 0.02;
+    segments.forEach(function (sg) {
+      var d = sg.end - sg.start;
+      var n = Math.max(2, Math.ceil(d / STEP) + 1);
+      var xs = new Float32Array(n), ys = new Float32Array(n), zs = new Float32Array(n);
+      for (var i = 0; i < n; i++) {
+        var tt = Math.min(d, (i / (n - 1)) * d);
+        var ph = (tt / period) * Math.PI * 2;
+        var pos = positionAt(mode, ph, radius);
+        xs[i] = pos.x; ys[i] = pos.y; zs[i] = pos.z;
+      }
+      p.positionX.setValueCurveAtTime(xs, sg.start, d);
+      p.positionY.setValueCurveAtTime(ys, sg.start, d);
+      p.positionZ.setValueCurveAtTime(zs, sg.start, d);
+      // 结束后 50ms 平滑归位到正前方，避免跳变爆音
+      var back = sg.end + 0.05;
+      if (back <= dur) {
+        p.positionX.linearRampToValueAtTime(0, back);
+        p.positionY.linearRampToValueAtTime(0, back);
+        p.positionZ.linearRampToValueAtTime(-radius, back);
+      }
+    });
+
+    src.start(0);
+    return off.startRendering();
+  }
+
+  /* ---------- WAV 编码 ---------- */
+  function encodeWav(buf) {
+    var numCh = Math.min(2, buf.numberOfChannels);
+    var rate = buf.sampleRate, len = buf.length;
+    var blockAlign = numCh * 2, dataSize = len * blockAlign;
+    var ab = new ArrayBuffer(44 + dataSize);
+    var view = new DataView(ab);
+    function wstr(o, s) { for (var i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); }
+    wstr(0, 'RIFF'); view.setUint32(4, 36 + dataSize, true); wstr(8, 'WAVE');
+    wstr(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+    view.setUint16(22, numCh, true); view.setUint32(24, rate, true);
+    view.setUint32(28, rate * blockAlign, true); view.setUint16(32, blockAlign, true);
+    view.setUint16(34, 16, true); wstr(36, 'data'); view.setUint32(40, dataSize, true);
+    var chans = [];
+    for (var c = 0; c < numCh; c++) chans.push(buf.getChannelData(c));
+    var off = 44;
+    for (var i = 0; i < len; i++) {
+      for (var c = 0; c < numCh; c++) {
+        var s = Math.max(-1, Math.min(1, chans[c][i]));
+        view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        off += 2;
+      }
+    }
+    return new Blob([ab], { type: 'audio/wav' });
+  }
+
+  /* ---------- MP3 编码（lamejs） ---------- */
+  var MP3_RATES = [8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000];
+  function resample(data, fromRate, toRate) {
+    if (fromRate === toRate) return data;
+    var ratio = fromRate / toRate, n = Math.round(data.length / ratio);
+    var out = new Float32Array(n);
+    for (var i = 0; i < n; i++) {
+      var pos = i * ratio, i0 = Math.floor(pos), i1 = Math.min(i0 + 1, data.length - 1), f = pos - i0;
+      out[i] = data[i0] * (1 - f) + data[i1] * f;
+    }
+    return out;
+  }
+  function toInt16(data) {
+    var out = new Int16Array(data.length);
+    for (var i = 0; i < data.length; i++) {
+      var s = Math.max(-1, Math.min(1, data[i]));
+      out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+    return out;
+  }
+  function encodeMp3P(buf, kbps, onProgress) {
+    return new Promise(function (resolve, reject) {
+      try {
+        var target = 44100, best = Infinity;
+        MP3_RATES.forEach(function (r) { if (Math.abs(r - buf.sampleRate) < Math.abs(target - buf.sampleRate)) target = r; });
+        var left = toInt16(resample(buf.getChannelData(0), buf.sampleRate, target));
+        var right = buf.numberOfChannels > 1 ? toInt16(resample(buf.getChannelData(1), buf.sampleRate, target)) : null;
+        var enc = new lamejs.Mp3Encoder(right ? 2 : 1, target, kbps);
+        var block = 1152, data = [], i = 0;
+        (function step() {
+          var end = Math.min(i + block * 32, left.length);
+          while (i < end) {
+            var b = enc.encodeBuffer(left.subarray(i, i + block), right ? right.subarray(i, i + block) : null);
+            if (b.length) data.push(b);
+            i += block;
+          }
+          if (onProgress) onProgress(i / left.length);
+          if (i < left.length) setTimeout(step, 0);
+          else {
+            var tail = enc.flush();
+            if (tail.length) data.push(tail);
+            resolve(new Blob(data, { type: 'audio/mpeg' }));
+          }
+        })();
+      } catch (e) { reject(e); }
+    });
+  }
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = src; s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+  var lamePromise = null;
+  function ensureLame() {
+    if (window.lamejs) return Promise.resolve();
+    if (!lamePromise) {
+      lamePromise = (function () {
+        var i = 0;
+        function next() {
+          if (i >= LAME_URLS.length) return Promise.reject(new Error('MP3 编码库加载失败，请改用 WAV'));
+          return loadScript(LAME_URLS[i++]).then(function () {
+            return window.lamejs ? Promise.resolve() : next();
+          }, next);
+        }
+        return next();
+      })();
+    }
+    return lamePromise;
+  }
+
+  function download(blob, name) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 3000);
+  }
+
+  function doExport(asMp3) {
+    if (!audioBuffer || exporting) return;
+    exporting = true;
+    var btns = [$('exportWav'), $('exportMp3')];
+    btns.forEach(function (b) { b.disabled = true; });
+    $('progress').style.display = 'block';
+    $('pbarFill').style.width = '8%';
+    $('ptext').textContent = '正在离线渲染环绕音轨…';
+
+    Promise.resolve()
+      .then(buildRenderContext)
+      .then(function (rendered) {
+        $('pbarFill').style.width = '70%';
+        if (!asMp3) {
+          $('ptext').textContent = '正在生成 WAV…';
+          $('pbarFill').style.width = '92%';
+          return encodeWav(rendered);
+        }
+        $('ptext').textContent = '正在编码 MP3…';
+        return ensureLame().then(function () {
+          return encodeMp3P(rendered, 192, function (p) {
+            $('pbarFill').style.width = Math.round(70 + p * 25) + '%';
+          });
+        });
+      })
+      .then(function (blob) {
+        $('pbarFill').style.width = '100%';
+        $('ptext').textContent = '完成，开始下载…';
+        var out = fileName + '_surround.' + (asMp3 ? 'mp3' : 'wav');
+        download(blob, out);
+        toast('已导出 ' + out);
+      })
+      .catch(function (err) {
+        toast(err && err.message ? err.message : '导出失败');
+      })
+      .then(function () {
+        exporting = false;
+        btns.forEach(function (b) { b.disabled = false; });
+        setTimeout(function () { $('progress').style.display = 'none'; }, 800);
+      });
+  }
+
+  /* ================= 时段 UI ================= */
+  function addSegment(s, e) {
+    segments.push({
+      start: s, end: e,
+      startInput: fmtTime(s), endInput: fmtTime(e)
+    });
+    renderSegments();
+    renderMarks();
+  }
+
+  function renderSegments() {
+    var box = $('segList');
+    box.innerHTML = '';
+    if (!segments.length) {
+      box.innerHTML = '<div class="empty-seg">尚未添加时间段（可先试听，再用「设为当前」快速打点）</div>';
+      return;
+    }
+    segments.forEach(function (g, i) {
+      var row = document.createElement('div');
+      row.className = 'seg-row';
+      row.innerHTML =
+        '<span style="font-size:11px;color:#666;width:16px;">' + (i + 1) + '</span>' +
+        '<input class="sin" placeholder="0:00" /> <span class="tilde">~</span> <input class="ein" placeholder="0:10" />' +
+        '<button class="btn sm setcur sinbtn">起点设为当前</button>' +
+        '<button class="btn sm setcur einbtn">终点设为当前</button>' +
+        '<button class="sdel" title="删除">✕</button>';
+      var sin = row.querySelector('.sin'), ein = row.querySelector('.ein');
+      sin.value = g.startInput; ein.value = g.endInput;
+      sin.addEventListener('input', function () { g.startInput = sin.value; renderMarksLive(); });
+      ein.addEventListener('input', function () { g.endInput = ein.value; renderMarksLive(); });
+      row.querySelector('.sinbtn').addEventListener('click', function () {
+        if (!audioBuffer) return;
+        g.startInput = fmtTime(currentTime()); sin.value = g.startInput; renderMarksLive();
+      });
+      row.querySelector('.einbtn').addEventListener('click', function () {
+        if (!audioBuffer) return;
+        g.endInput = fmtTime(currentTime()); ein.value = g.endInput; renderMarksLive();
+      });
+      row.querySelector('.sdel').addEventListener('click', function () {
+        segments.splice(i, 1);
+        renderSegments(); renderMarksLive();
+      });
+      box.appendChild(row);
+    });
+  }
+
+  // 输入过程中尽量解析时间即时刷新标记条，解析失败则保留旧标记
+  function renderMarksLive() {
+    if (!audioBuffer) return;
+    var marks = [];
+    for (var i = 0; i < segments.length; i++) {
+      var s = parseTime(segments[i].startInput), e = parseTime(segments[i].endInput);
+      if (isFinite(s) && isFinite(e) && e > s && e <= audioBuffer.duration + 0.01) {
+        marks.push({ start: s, end: e });
+      }
+    }
+    drawMarks(marks);
+  }
+
+  function renderMarks() {
+    drawMarks(segments.map(function (g) { return { start: g.start, end: g.end }; }));
+  }
+  function drawMarks(marks) {
+    if (!audioBuffer) return;
+    var dur = audioBuffer.duration, box = $('marks');
+    box.innerHTML = '';
+    marks.forEach(function (g) {
+      var d = document.createElement('div');
+      d.className = 'mk';
+      d.style.left = (g.start / dur * 100) + '%';
+      d.style.width = ((g.end - g.start) / dur * 100) + '%';
+      box.appendChild(d);
+    });
+  }
+
+  /* ================= 事件绑定 ================= */
+  $('modes').addEventListener('click', function (e) {
+    var el = e.target.closest('.mode');
+    if (!el) return;
+    mode = el.getAttribute('data-mode');
+    $('modes').querySelectorAll('.mode').forEach(function (x) { x.classList.toggle('active', x === el); });
+  });
+  $('period').addEventListener('input', function () {
+    period = parseFloat(this.value);
+    $('periodVal').textContent = period.toFixed(1) + ' s';
+  });
+  $('radius').addEventListener('input', function () {
+    radius = parseFloat(this.value);
+    $('radiusVal').textContent = radius.toFixed(1);
+  });
+
+  $('addSeg').addEventListener('click', function () {
+    if (!audioBuffer) { toast('请先加载音频'); return; }
+    var t = currentTime();
+    addSegment(Math.floor(t), Math.min(audioBuffer.duration, Math.floor(t) + 5));
+  });
+  $('wholeSeg').addEventListener('click', function () {
+    if (!audioBuffer) { toast('请先加载音频'); return; }
+    segments = [{ start: 0, end: audioBuffer.duration, startInput: '0:00', endInput: fmtTime(audioBuffer.duration) }];
+    renderSegments(); renderMarks();
+  });
+
+  $('playBtn').addEventListener('click', function () { isPlaying ? pause() : play(); });
+  $('seek').addEventListener('input', function () {
+    if (!audioBuffer) return;
+    seekTo((this.value / 1000) * audioBuffer.duration);
+  });
+
+  $('exportWav').addEventListener('click', function () { doExport(false); });
+  $('exportMp3').addEventListener('click', function () { doExport(true); });
+
+  /* ---------- 文件拖放/选择 ---------- */
+  var dz = $('dropzone'), dragDepth = 0;
+  window.addEventListener('dragenter', function (e) { e.preventDefault(); dragDepth++; dz.classList.add('drag'); });
+  window.addEventListener('dragover', function (e) { e.preventDefault(); });
+  window.addEventListener('dragleave', function () { dragDepth--; if (dragDepth <= 0) { dragDepth = 0; dz.classList.remove('drag'); } });
+  window.addEventListener('drop', function (e) {
+    e.preventDefault(); dragDepth = 0; dz.classList.remove('drag');
+    if (e.dataTransfer && e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+  });
+  dz.addEventListener('click', function (e) { if (!e.target.closest('.btn')) $('fileInput').click(); });
+  $('pickBtn').addEventListener('click', function (e) { e.stopPropagation(); $('fileInput').click(); });
+  $('fileInput').addEventListener('change', function () {
+    if (this.files.length) loadFile(this.files[0]);
+    this.value = '';
+  });
+})();
+</script>
+</body>
+</html>
