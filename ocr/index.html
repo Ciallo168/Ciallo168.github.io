@@ -186,13 +186,20 @@
       <h3>识别设置</h3>
       <div class="row">
         <div class="field">
+          <label>识别引擎</label>
+          <select id="engineSel">
+            <option value="tesseract" selected>本地 Tesseract（离线可用）</option>
+            <option value="ocrspace">在线 OCR.space（中文最准，需 Key）</option>
+          </select>
+        </div>
+        <div class="field">
           <label>识别语言</label>
           <select id="langSel">
             <option value="chi_sim+eng" selected>中文 + 英文</option>
             <option value="eng">仅英文</option>
           </select>
         </div>
-        <div class="field">
+        <div class="field" id="psmField">
           <label>页面分割 (PSM)</label>
           <select id="psmSel">
             <option value="3" selected>自动（推荐）</option>
@@ -202,13 +209,17 @@
             <option value="4">单列文本</option>
           </select>
         </div>
-        <div class="field">
+        <div class="field" id="preprocessField">
           <label>图像预处理</label>
           <select id="preprocessSel">
-            <option value="enhance" selected>自动增强（推荐）</option>
+            <option value="none" selected>不处理（默认，最稳定）</option>
+            <option value="enhance">自动增强</option>
             <option value="binary">二值化（黑白文档）</option>
-            <option value="none">不处理</option>
           </select>
+        </div>
+        <div class="field" id="ocrspaceField" style="display:none">
+          <label>OCR.space API Key</label>
+          <input type="password" id="ocrspaceKey" placeholder="在 ocr.space/apikey 免费注册获取" style="min-width:220px" />
         </div>
         <div class="field" id="tableOptField" style="display:none">
           <label>&nbsp;</label>
@@ -220,7 +231,7 @@
         </div>
       </div>
       <div class="hint" style="margin-top:10px">
-        ⚠️ 首次识别需联网下载 OCR 语言包（中英约 15MB），之后浏览器会缓存，可离线使用。全程在本地浏览器内完成，文件不会上传到任何服务器。
+        💡 <b>在线 OCR.space</b>：识别质量最高（含中文），图片会上传到 ocr.space，Key 免费注册（每月 2.5 万次额度），仅保存在你本机。⚠️ <b>本地 Tesseract</b>：首次识别需联网下载语言包（约 15MB）后浏览器缓存，可离线，文件不上传。
       </div>
     </div>
 
@@ -298,6 +309,8 @@
   const previewImg = $("previewImg"), pdfInfo = $("pdfInfo"), pdfPages = $("pdfPages");
   const langSel = $("langSel"), tableOptField = $("tableOptField"), pdfOptField = $("pdfOptField");
   const psmSel = $("psmSel"), preprocessSel = $("preprocessSel");
+  const engineSel = $("engineSel"), psmField = $("psmField"), preprocessField = $("preprocessField");
+  const ocrspaceField = $("ocrspaceField"), ocrspaceKey = $("ocrspaceKey");
   const headerCheck = $("headerCheck"), scanCheck = $("scanCheck");
   const formulaOnlineCard = $("formulaOnlineCard");
   const providerSel = $("providerSel"), simpletexField = $("simpletexField"), mathpixField = $("mathpixField");
@@ -323,6 +336,7 @@
   simpletexToken.value = localStorage.getItem("ocr_simpletex_token") || "";
   mathpixAppId.value = localStorage.getItem("ocr_mathpix_appid") || "";
   mathpixAppKey.value = localStorage.getItem("ocr_mathpix_appkey") || "";
+  ocrspaceKey.value = localStorage.getItem("ocr_ocrspace_key") || "";
 
   // ---------- 工具函数 ----------
   function toast(msg) {
@@ -562,6 +576,53 @@
     });
   });
 
+  // ---------- 识别引擎切换 ----------
+  function applyEngine() {
+    const online = engineSel.value === "ocrspace";
+    ocrspaceField.style.display = online ? "" : "none";
+    psmField.style.display = online ? "none" : "";
+    preprocessField.style.display = online ? "none" : "";
+    langSel.disabled = online;
+  }
+  engineSel.addEventListener("change", applyEngine);
+  applyEngine();
+  ocrspaceKey.addEventListener("change", () => localStorage.setItem("ocr_ocrspace_key", ocrspaceKey.value));
+
+  // 在线引擎调用 OCR.space（原生 CORS，支持中文 chs）
+  async function ocrspaceRecognize(file, language) {
+    const key = ocrspaceKey.value.trim();
+    if (!key) { toast("请先填写 OCR.space API Key（设置区「识别引擎」选在线后可见）"); throw new Error("缺少 OCR.space API Key"); }
+    setProgress(0.5, "上传到 OCR.space 识别…");
+    const fd = new FormData();
+    fd.append("apikey", key);
+    fd.append("language", language);
+    fd.append("isOverlayRequired", "false");
+    fd.append("OCREngine", "2");
+    fd.append("file", file, file.name || "image.png");
+    const r = await fetch("https://api.ocr.space/parse/image", { method: "POST", body: fd });
+    if (!r.ok) { const txt = await r.text(); throw new Error("OCR.space HTTP " + r.status + (txt ? "：" + txt.slice(0,120) : "")); }
+    const j = await r.json();
+    if (j.OCRExitCode !== 1) {
+      throw new Error("OCR.space 错误：" + (j.ErrorMessage && j.ErrorMessage[0] ? j.ErrorMessage[0].Message : ("ExitCode " + j.OCRExitCode)));
+    }
+    const t = (j.ParsedResults && j.ParsedResults[0] && j.ParsedResults[0].ParsedText) || "";
+    return t.replace(/\r\n/g, "\n").trim();
+  }
+
+  // 统一识别入口：返回 { text, words? }。Tesseract 带词框（可重建表格），OCR.space 仅纯文本
+  async function runEngine(file) {
+    if (engineSel.value === "ocrspace") {
+      const lang = langSel.value.includes("chi") ? "chs" : "eng";
+      const text = await ocrspaceRecognize(file, lang);
+      return { text, words: null };
+    }
+    const w = await getWorker(langSel.value);
+    await w.setParameters({ tessedit_pageseg_mode: psmSel.value });
+    const input = await prepareInput();
+    const { data } = await w.recognize(input);
+    return { text: data.text || "", words: data.words || [] };
+  }
+
   // ---------- Tesseract worker ----------
   async function getWorker(lang) {
     if (worker && workerLang === lang) return worker;
@@ -605,26 +666,18 @@
   });
 
   async function recognizeText() {
-    const w = await getWorker(langSel.value);
-    await w.setParameters({ tessedit_pageseg_mode: psmSel.value });
-    const input = await prepareInput();
-    setProgress(0.9, "识别中…");
-    const { data } = await w.recognize(input);
-    resultText = (data.text || "").replace(/\r\n/g, "\n");
+    const res = await runEngine(currentFile);
+    resultText = res.text;
     currentKind = "text";
     resultLatex = "";
     showTextResult("识别完成");
   }
 
   async function recognizeTable() {
-    const w = await getWorker(langSel.value);
-    await w.setParameters({ tessedit_pageseg_mode: psmSel.value });
-    const input = await prepareInput();
-    setProgress(0.9, "识别表格…");
-    const { data } = await w.recognize(input);
-    const words = (data.words || []).filter(x => x && x.text && x.text.trim() !== "");
-    const grid = buildGrid(words);
-    if (!grid || grid.length === 0) { toast("未识别到表格结构，已回退为纯文字"); resultText = data.text; currentKind = "text"; showTextResult("识别完成（未检测到表格）"); return; }
+    const res = await runEngine(currentFile);
+    const words = (res.words || []).filter(x => x && x.text && x.text.trim() !== "");
+    const grid = words.length ? buildGrid(words) : null;
+    if (!grid || grid.length === 0) { toast("未识别到表格结构，已回退为纯文字"); resultText = res.text; currentKind = "text"; showTextResult("识别完成（未检测到表格）"); return; }
     resultGrid = grid;
     resultText = grid.map(r => r.join("\t")).join("\n");
     currentKind = "table";
@@ -632,13 +685,9 @@
   }
 
   async function recognizeFormulaLocal() {
-    // 本地：优先用英文识别公式区域（公式多为 ASCII / 数学符号）
-    const w = await getWorker(langSel.value);
-    await w.setParameters({ tessedit_pageseg_mode: psmSel.value });
-    const input = await prepareInput();
-    setProgress(0.9, "识别公式…");
-    const { data } = await w.recognize(input);
-    resultText = (data.text || "").replace(/\r\n/g, "\n");
+    // 本地/在线：识别文本后整理成 LaTeX
+    const res = await runEngine(currentFile);
+    resultText = res.text;
     resultLatex = toLatexFragments(resultText);
     currentKind = "formula";
     showFormulaResult();
@@ -702,7 +751,6 @@
     const scan = scanCheck.checked;
     let out = "";
     if (scan) {
-      const w = await getWorker(langSel.value);
       for (let i = 1; i <= pdf.numPages; i++) {
         setProgress(i/pdf.numPages, "OCR 第 " + i + " / " + pdf.numPages + " 页…");
         const page = await pdf.getPage(i);
@@ -711,9 +759,10 @@
         canvas.width = vp.width; canvas.height = vp.height;
         const ctx = canvas.getContext("2d");
         await page.render({ canvasContext: ctx, viewport: vp }).promise;
-        const dataUrl = canvas.toDataURL("image/png");
-        const { data } = await w.recognize(dataUrl);
-        out += (i > 1 ? "\n\n" : "") + "===== 第 " + i + " 页 =====\n" + (data.text || "");
+        const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+        const pageFile = new File([blob], "page_" + i + ".png", { type: "image/png" });
+        const res = await runEngine(pageFile);
+        out += (i > 1 ? "\n\n" : "") + "===== 第 " + i + " 页 =====\n" + res.text;
       }
     } else {
       for (let i = 1; i <= pdf.numPages; i++) {
