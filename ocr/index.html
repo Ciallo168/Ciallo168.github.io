@@ -192,6 +192,24 @@
             <option value="eng">仅英文</option>
           </select>
         </div>
+        <div class="field">
+          <label>页面分割 (PSM)</label>
+          <select id="psmSel">
+            <option value="3" selected>自动（推荐）</option>
+            <option value="6">单块文本</option>
+            <option value="11">稀疏文字</option>
+            <option value="7">单行文本</option>
+            <option value="4">单列文本</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>图像预处理</label>
+          <select id="preprocessSel">
+            <option value="enhance" selected>自动增强（推荐）</option>
+            <option value="binary">二值化（黑白文档）</option>
+            <option value="none">不处理</option>
+          </select>
+        </div>
         <div class="field" id="tableOptField" style="display:none">
           <label>&nbsp;</label>
           <label class="checkline"><input type="checkbox" id="headerCheck" checked /> 首行为表头</label>
@@ -279,6 +297,7 @@
   const fileName = $("fileName"), fileSize = $("fileSize"), fileClear = $("fileClear");
   const previewImg = $("previewImg"), pdfInfo = $("pdfInfo"), pdfPages = $("pdfPages");
   const langSel = $("langSel"), tableOptField = $("tableOptField"), pdfOptField = $("pdfOptField");
+  const psmSel = $("psmSel"), preprocessSel = $("preprocessSel");
   const headerCheck = $("headerCheck"), scanCheck = $("scanCheck");
   const formulaOnlineCard = $("formulaOnlineCard");
   const providerSel = $("providerSel"), simpletexField = $("simpletexField"), mathpixField = $("mathpixField");
@@ -346,6 +365,87 @@
   }
   function xmlEsc(s) {
     return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
+  }
+
+  // ---------- 图像预处理 ----------
+  function otsuThreshold(gray) {
+    const hist = new Array(256).fill(0);
+    for (let i = 0; i < gray.length; i++) hist[gray[i]]++;
+    const total = gray.length;
+    let sum = 0;
+    for (let i = 0; i < 256; i++) sum += i * hist[i];
+    let sumB = 0, wB = 0, maxVar = 0, th = 127;
+    for (let t = 0; t < 256; t++) {
+      wB += hist[t];
+      if (wB === 0) continue;
+      const wF = total - wB;
+      if (wF === 0) break;
+      sumB += t * hist[t];
+      const mB = sumB / wB, mF = (sum - sumB) / wF;
+      const v = wB * wF * (mB - mF) * (mB - mF);
+      if (v > maxVar) { maxVar = v; th = t; }
+    }
+    return th;
+  }
+
+  // mode: 'enhance' 灰度+对比度拉伸+放大 | 'binary' 额外做 Otsu 二值化
+  function preprocessImage(file, mode) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        try {
+          let w = img.naturalWidth, h = img.naturalHeight;
+          const maxDim = Math.max(w, h);
+          if (maxDim < 1600) {
+            const scale = Math.min(3, Math.ceil(1600 / maxDim));
+            if (scale > 1) { w = Math.round(w * scale); h = Math.round(h * scale); }
+          }
+          const cv = document.createElement("canvas");
+          cv.width = w; cv.height = h;
+          const ctx = cv.getContext("2d", { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0, w, h);
+          const id = ctx.getImageData(0, 0, w, h);
+          const d = id.data;
+          const len = w * h;
+          const gray = new Uint8Array(len);
+          for (let i = 0, p = 0; i < len; i++, p += 4) {
+            gray[i] = Math.round(0.299*d[p] + 0.587*d[p+1] + 0.114*d[p+2]);
+          }
+          // 对比度拉伸
+          let mn = 255, mx = 0;
+          for (let i = 0; i < len; i++) { if (gray[i] < mn) mn = gray[i]; if (gray[i] > mx) mx = gray[i]; }
+          if (mx > mn) for (let i = 0; i < len; i++) gray[i] = Math.round((gray[i]-mn)*255/(mx-mn));
+          // 写回（白底黑字）
+          if (mode === "binary") {
+            const th = otsuThreshold(gray);
+            for (let i = 0, p = 0; i < len; i++, p += 4) {
+              const v = gray[i] > th ? 255 : 0;
+              d[p] = v; d[p+1] = v; d[p+2] = v; d[p+3] = 255;
+            }
+          } else {
+            for (let i = 0, p = 0; i < len; i++, p += 4) {
+              const v = gray[i];
+              d[p] = v; d[p+1] = v; d[p+2] = v; d[p+3] = 255;
+            }
+          }
+          ctx.putImageData(id, 0, 0);
+          resolve(cv.toDataURL("image/png"));
+        } catch (e) {
+          resolve(file);
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      };
+      img.onerror = () => resolve(file);
+      img.src = url;
+    });
+  }
+
+  async function prepareInput() {
+    const mode = preprocessSel.value;
+    if (mode === "none") return currentFile;
+    return await preprocessImage(currentFile, mode);
   }
 
   // ---------- 文件选择 ----------
@@ -506,8 +606,10 @@
 
   async function recognizeText() {
     const w = await getWorker(langSel.value);
+    await w.setParameters({ tessedit_pageseg_mode: psmSel.value });
+    const input = await prepareInput();
     setProgress(0.9, "识别中…");
-    const { data } = await w.recognize(currentFile);
+    const { data } = await w.recognize(input);
     resultText = (data.text || "").replace(/\r\n/g, "\n");
     currentKind = "text";
     resultLatex = "";
@@ -516,8 +618,10 @@
 
   async function recognizeTable() {
     const w = await getWorker(langSel.value);
+    await w.setParameters({ tessedit_pageseg_mode: psmSel.value });
+    const input = await prepareInput();
     setProgress(0.9, "识别表格…");
-    const { data } = await w.recognize(currentFile);
+    const { data } = await w.recognize(input);
     const words = (data.words || []).filter(x => x && x.text && x.text.trim() !== "");
     const grid = buildGrid(words);
     if (!grid || grid.length === 0) { toast("未识别到表格结构，已回退为纯文字"); resultText = data.text; currentKind = "text"; showTextResult("识别完成（未检测到表格）"); return; }
@@ -530,8 +634,10 @@
   async function recognizeFormulaLocal() {
     // 本地：优先用英文识别公式区域（公式多为 ASCII / 数学符号）
     const w = await getWorker(langSel.value);
+    await w.setParameters({ tessedit_pageseg_mode: psmSel.value });
+    const input = await prepareInput();
     setProgress(0.9, "识别公式…");
-    const { data } = await w.recognize(currentFile);
+    const { data } = await w.recognize(input);
     resultText = (data.text || "").replace(/\r\n/g, "\n");
     resultLatex = toLatexFragments(resultText);
     currentKind = "formula";
