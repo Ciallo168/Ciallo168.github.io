@@ -10,6 +10,8 @@
   link: /audio-extractor/
 - name: 环绕音
   link: /surround/
+- name: 文字识别
+  link: /ocr/
 - name: 博客
   link: /blog.html
 - name: 关于

@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>图片文字识别 OCR</title>
+<style>
+  :root {
+    --bg: #0a0a0f; --card: #12121a; --card-2: #17171f; --border: #26262e;
+    --purple: #a855f7; --cyan: #22d3ee; --gold: #f59e0b; --green: #34d399;
+    --text: #e5e5e5; --muted: #8888a0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(34,211,238,.10), transparent),
+               radial-gradient(ellipse 60% 40% at 80% 110%, rgba(168,85,247,.10), transparent), var(--bg);
+    color: var(--text); min-height: 100vh; display: flex; flex-direction: column;
+  }
+  .wrap { width: 100%; max-width: 920px; margin: 0 auto; padding: 20px 16px 40px; flex: 1; }
+
+  .crumb { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 18px; }
+  .crumb a {
+    display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: 8px;
+    color: var(--muted); background: var(--card); border: 1px solid var(--border); text-decoration: none; transition: .25s;
+  }
+  .crumb a:hover { color: var(--cyan); border-color: rgba(34,211,238,.4); box-shadow: 0 0 10px rgba(34,211,238,.15); }
+  .crumb .sep { color: #444; } .crumb .cur { color: var(--cyan); font-weight: 500; }
+
+  h1 {
+    text-align: center; font-size: 30px; font-weight: 700; letter-spacing: 1px; margin-bottom: 4px;
+    background: linear-gradient(90deg, var(--cyan), var(--purple));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 22px; }
+
+  #dropzone {
+    border: 2px dashed var(--border); border-radius: 16px; background: rgba(18,18,26,.6);
+    padding: 36px 20px; text-align: center; cursor: pointer; transition: .25s;
+  }
+  #dropzone:hover, #dropzone.drag { border-color: var(--cyan); background: rgba(34,211,238,.06); box-shadow: 0 0 30px rgba(34,211,238,.14); }
+  #dropzone .icon { font-size: 40px; margin-bottom: 10px; }
+  #dropzone .t1 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  #dropzone .t2 { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 18px; border-radius: 10px; font-size: 13px;
+    border: 1px solid var(--border); background: var(--card-2); color: var(--text); cursor: pointer; transition: .2s;
+  }
+  .btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  .btn.primary { background: var(--purple); border-color: var(--purple); color: #fff; }
+  .btn.primary:hover { background: #9333ea; color: #fff; }
+  .btn.gold { background: var(--gold); border-color: var(--gold); color: #0a0a0f; font-weight: 600; }
+  .btn.gold:hover { background: #d97706; color: #0a0a0f; }
+  .btn.green { background: var(--green); border-color: var(--green); color: #052e22; font-weight: 600; }
+  .btn.green:hover { background: #10b981; color: #052e22; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn.sm { padding: 6px 12px; font-size: 12px; }
+  input[type=file] { display: none; }
+
+  #panel { display: none; margin-top: 18px; }
+  .card {
+    border: 1px solid var(--border); border-radius: 14px; background: var(--card);
+    padding: 16px; margin-bottom: 14px;
+  }
+  .card h3 { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 12px; letter-spacing: .5px; }
+
+  .fmeta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .fname { font-size: 14px; font-weight: 600; word-break: break-all; flex: 1; min-width: 200px; }
+  .fsize { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .fclear { font-size: 12px; color: var(--muted); cursor: pointer; }
+  .fclear:hover { color: #f87171; }
+
+  .preview-row { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; margin-top: 12px; }
+  #previewImg { max-width: 300px; max-height: 220px; border-radius: 10px; border: 1px solid var(--border); }
+  #pdfInfo { font-size: 12px; color: var(--muted); }
+  #pdfPages { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  #pdfPages canvas { border: 1px solid var(--border); border-radius: 6px; }
+
+  /* 模式选项卡 */
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .tab {
+    border: 1px solid var(--border); border-radius: 10px; background: var(--card-2);
+    padding: 11px 6px; text-align: center; cursor: pointer; transition: .2s;
+  }
+  .tab .mi { font-size: 20px; display: block; margin-bottom: 5px; }
+  .tab .mn { font-size: 12px; color: var(--muted); }
+  .tab:hover { border-color: rgba(34,211,238,.4); }
+  .tab.active { border-color: var(--cyan); background: rgba(34,211,238,.08); box-shadow: 0 0 12px rgba(34,211,238,.14); }
+  .tab.active .mn { color: var(--cyan); font-weight: 600; }
+  .tab:disabled { opacity: .35; cursor: not-allowed; }
+
+  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; margin-top: 12px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  select, input[type=text], input[type=password] {
+    background: var(--card-2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 8px 10px; font-size: 13px; outline: none; min-width: 160px;
+  }
+  select:focus, input:focus { border-color: var(--cyan); }
+  .hint { font-size: 11px; color: var(--muted); line-height: 1.6; }
+
+  .checkline { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-top: 10px; cursor: pointer; }
+  .checkline input { accent-color: var(--cyan); }
+
+  /* 进度 */
+  #progressWrap { display: none; margin-top: 12px; }
+  .pbar { height: 8px; border-radius: 4px; background: #262630; overflow: hidden; }
+  .pbar > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--cyan), var(--purple)); transition: width .15s; }
+  #progressText { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  /* 结果 */
+  #resultCard { display: none; }
+  #resultToolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  #textResult {
+    width: 100%; min-height: 220px; background: var(--card-2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 10px; padding: 12px; font-size: 13px; line-height: 1.7;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace; resize: vertical; outline: none;
+  }
+  #latexResult {
+    width: 100%; min-height: 120px; background: var(--card-2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 10px; padding: 12px; font-size: 13px; line-height: 1.7;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace; resize: vertical; outline: none; margin-top: 10px;
+  }
+  #tableWrap { overflow: auto; max-height: 400px; border: 1px solid var(--border); border-radius: 10px; }
+  #tableWrap table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  #tableWrap th, #tableWrap td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; }
+  #tableWrap th { background: var(--card-2); color: var(--cyan); font-weight: 600; white-space: nowrap; }
+  #tableWrap td { background: var(--card); }
+  .stat { font-size: 12px; color: var(--muted); margin-top: 10px; }
+
+  /* toast */
+  #toast {
+    position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%) translateY(20px);
+    background: var(--card-2); border: 1px solid var(--border); color: var(--text);
+    padding: 11px 18px; border-radius: 10px; font-size: 13px; opacity: 0; pointer-events: none;
+    transition: .3s; z-index: 99; box-shadow: 0 8px 30px rgba(0,0,0,.4); max-width: 90vw;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 560px) { .tabs { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumb">
+    <a href="/">🏠 首页</a><span class="sep">/</span><span class="cur">图片文字识别</span>
+  </div>
+  <h1>图片文字识别 OCR</h1>
+  <div class="sub">图片 / 表格 / 数学公式 / PDF 提取文字 · 纯本地处理，文件不上传 · 导出 docx / txt / md / xlsx</div>
+
+  <div id="dropzone">
+    <div class="icon">🖼️</div>
+    <div class="t1">拖入图片或 PDF，或点击选择文件</div>
+    <div class="t2">支持 png / jpg / jpeg / bmp / webp / pdf</div>
+    <button class="btn primary" type="button">选择文件</button>
+    <input type="file" id="fileInput" accept=".png,.jpg,.jpeg,.bmp,.webp,.pdf" />
+  </div>
+
+  <div id="panel">
+    <div class="card">
+      <div class="fmeta">
+        <span class="fname" id="fileName"></span>
+        <span class="fsize" id="fileSize"></span>
+        <span class="fclear" id="fileClear">✕ 移除</span>
+      </div>
+      <div class="preview-row">
+        <img id="previewImg" alt="预览" style="display:none" />
+        <div id="pdfInfo" style="display:none"></div>
+        <div id="pdfPages"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>识别模式</h3>
+      <div class="tabs">
+        <button class="tab active" data-mode="text"><span class="mi">🔤</span><span class="mn">图片文字</span></button>
+        <button class="tab" data-mode="table"><span class="mi">📊</span><span class="mn">表格识别</span></button>
+        <button class="tab" data-mode="formula"><span class="mi">🧮</span><span class="mn">数学公式</span></button>
+        <button class="tab" data-mode="pdf"><span class="mi">📄</span><span class="mn">PDF 转文字</span></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>识别设置</h3>
+      <div class="row">
+        <div class="field">
+          <label>识别语言</label>
+          <select id="langSel">
+            <option value="chi_sim+eng" selected>中文 + 英文</option>
+            <option value="eng">仅英文</option>
+          </select>
+        </div>
+        <div class="field" id="tableOptField" style="display:none">
+          <label>&nbsp;</label>
+          <label class="checkline"><input type="checkbox" id="headerCheck" checked /> 首行为表头</label>
+        </div>
+        <div class="field" id="pdfOptField" style="display:none">
+          <label>&nbsp;</label>
+          <label class="checkline"><input type="checkbox" id="scanCheck" /> 扫描版 PDF（每页转图片后 OCR）</label>
+        </div>
+      </div>
+      <div class="hint" style="margin-top:10px">
+        ⚠️ 首次识别需联网下载 OCR 语言包（中英约 15MB），之后浏览器会缓存，可离线使用。全程在本地浏览器内完成，文件不会上传到任何服务器。
+      </div>
+    </div>
+
+    <div class="card" id="formulaOnlineCard" style="display:none">
+      <h3>在线公式识别（可选，识别更准）</h3>
+      <div class="row">
+        <div class="field">
+          <label>服务商</label>
+          <select id="providerSel">
+            <option value="simpletex">SimpleTex（免费，推荐）</option>
+            <option value="mathpix">Mathpix</option>
+          </select>
+        </div>
+        <div class="field" id="simpletexField">
+          <label>SimpleTex Token</label>
+          <input type="password" id="simpletexToken" placeholder="在 simpletex.cn 获取" />
+        </div>
+        <div class="field" id="mathpixField" style="display:none">
+          <label>Mathpix App ID / App Key</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="mathpixAppId" placeholder="app_id" style="min-width:140px" />
+            <input type="password" id="mathpixAppKey" placeholder="app_key" style="min-width:180px" />
+          </div>
+        </div>
+      </div>
+      <div class="hint" style="margin-top:10px">密钥仅保存在你本机浏览器 localStorage 中，图片会发送到所选服务商用于识别。</div>
+    </div>
+
+    <div class="card" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+      <button class="btn green" id="btnRecognize" type="button" style="padding:11px 24px; font-size:14px">🚀 开始识别</button>
+      <span class="hint">识别前请先在上方选择「识别模式」。</span>
+    </div>
+
+    <div id="progressWrap">
+      <div class="pbar"><div id="progressBar"></div></div>
+      <div id="progressText"></div>
+    </div>
+
+    <div class="card" id="resultCard">
+      <h3>识别结果</h3>
+      <div id="resultToolbar">
+        <button class="btn sm" id="btnTxt">导出 TXT</button>
+        <button class="btn sm" id="btnMd">导出 MD</button>
+        <button class="btn sm" id="btnDocx">导出 DOCX</button>
+        <button class="btn sm" id="btnCsv">导出 CSV</button>
+        <button class="btn sm" id="btnXlsx">导出 XLSX</button>
+      </div>
+      <textarea id="textResult" spellcheck="false"></textarea>
+      <textarea id="latexResult" placeholder="LaTeX 结果将显示在这里（公式识别）" spellcheck="false" style="display:none"></textarea>
+      <div id="tableWrap" style="display:none"></div>
+      <div class="stat" id="resultStat"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  if (typeof pdfjsLib !== "undefined") {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+  }
+
+  // ---------- 元素 ----------
+  const $ = id => document.getElementById(id);
+  const dropzone = $("dropzone"), fileInput = $("fileInput");
+  const panel = $("panel");
+  const fileName = $("fileName"), fileSize = $("fileSize"), fileClear = $("fileClear");
+  const previewImg = $("previewImg"), pdfInfo = $("pdfInfo"), pdfPages = $("pdfPages");
+  const langSel = $("langSel"), tableOptField = $("tableOptField"), pdfOptField = $("pdfOptField");
+  const headerCheck = $("headerCheck"), scanCheck = $("scanCheck");
+  const formulaOnlineCard = $("formulaOnlineCard");
+  const providerSel = $("providerSel"), simpletexField = $("simpletexField"), mathpixField = $("mathpixField");
+  const simpletexToken = $("simpletexToken"), mathpixAppId = $("mathpixAppId"), mathpixAppKey = $("mathpixAppKey");
+  const btnRecognize = $("btnRecognize");
+  const progressWrap = $("progressWrap"), progressBar = $("progressBar"), progressText = $("progressText");
+  const resultCard = $("resultCard");
+  const textResult = $("textResult"), latexResult = $("latexResult"), tableWrap = $("tableWrap");
+  const resultStat = $("resultStat");
+  const toastEl = $("toast");
+
+  // ---------- 状态 ----------
+  let currentFile = null;
+  let currentMode = "text";
+  let currentKind = null; // text | table | formula
+  let resultText = "";    // 纯文本结果
+  let resultLatex = "";   // LaTeX 结果（公式）
+  let resultGrid = null;  // 表格二维数组
+  let worker = null;      // Tesseract worker 缓存
+  let workerLang = null;
+
+  // 恢复在线公式密钥
+  simpletexToken.value = localStorage.getItem("ocr_simpletex_token") || "";
+  mathpixAppId.value = localStorage.getItem("ocr_mathpix_appid") || "";
+  mathpixAppKey.value = localStorage.getItem("ocr_mathpix_appkey") || "";
+
+  // ---------- 工具函数 ----------
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => toastEl.classList.remove("show"), 2800);
+  }
+  function fmtSize(b) {
+    if (b < 1024) return b + " B";
+    if (b < 1024*1024) return (b/1024).toFixed(1) + " KB";
+    return (b/1024/1024).toFixed(2) + " MB";
+  }
+  function ext(name) { return (name.split(".").pop() || "").toLowerCase(); }
+  function isPdf(name) { return ext(name) === "pdf"; }
+  function isImage(name) { return ["png","jpg","jpeg","bmp","webp"].includes(ext(name)); }
+  function base(name) { return name.replace(/\.[^.]+$/, "") || "output"; }
+  function median(arr) {
+    if (!arr.length) return 0;
+    const s = [...arr].sort((a,b)=>a-b), m = Math.floor(s.length/2);
+    return s.length % 2 ? s[m] : (s[m-1]+s[m])/2;
+  }
+  function fileToArrayBuffer(file) {
+    return file.arrayBuffer();
+  }
+  function fileToDataUrl(file) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+  }
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function xmlEsc(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
+  }
+
+  // ---------- 文件选择 ----------
+  dropzone.addEventListener("click", e => { if (e.target.tagName !== "INPUT") fileInput.click(); });
+  dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("drag"); });
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag"));
+  dropzone.addEventListener("drop", e => {
+    e.preventDefault(); dropzone.classList.remove("drag");
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  });
+  fileInput.addEventListener("change", () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+  fileClear.addEventListener("click", resetFile);
+
+  function resetFile() {
+    currentFile = null;
+    panel.style.display = "none";
+    dropzone.style.display = "";
+    previewImg.style.display = "none"; previewImg.src = "";
+    pdfInfo.style.display = "none"; pdfInfo.innerHTML = "";
+    pdfPages.innerHTML = "";
+    fileInput.value = "";
+    resultCard.style.display = "none";
+    resultText = ""; resultLatex = ""; resultGrid = null; currentKind = null;
+  }
+
+  async function handleFile(file) {
+    if (!isImage(file.name) && !isPdf(file.name)) { toast("仅支持 png / jpg / bmp / webp / pdf 文件"); return; }
+    currentFile = file;
+    dropzone.style.display = "none";
+    panel.style.display = "block";
+    fileName.textContent = file.name;
+    fileSize.textContent = fmtSize(file.size);
+    pdfPages.innerHTML = "";
+    previewImg.style.display = "none"; previewImg.src = "";
+    pdfInfo.style.display = "none"; pdfInfo.innerHTML = "";
+    resultCard.style.display = "none";
+    currentKind = null;
+
+    if (isImage(file.name)) {
+      const url = URL.createObjectURL(file);
+      previewImg.src = url; previewImg.style.display = "";
+      // 图片默认图片文字；表格/公式可选
+      setMode("text");
+      tableOptField.style.display = "";
+      pdfOptField.style.display = "none";
+      enableTabs({ text:true, table:true, formula:true, pdf:false });
+    } else {
+      previewImg.style.display = "none";
+      pdfInfo.style.display = "";
+      pdfInfo.innerHTML = "正在加载 PDF…";
+      setMode("pdf");
+      tableOptField.style.display = "none";
+      pdfOptField.style.display = "";
+      enableTabs({ text:false, table:false, formula:false, pdf:true });
+      renderPdfPreview(file);
+    }
+  }
+
+  function enableTabs(map) {
+    document.querySelectorAll(".tab").forEach(t => {
+      const m = t.dataset.mode;
+      t.disabled = !map[m];
+    });
+  }
+
+  async function renderPdfPreview(file) {
+    try {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+      const buf = await fileToArrayBuffer(file);
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      const n = pdf.numPages;
+      pdfInfo.innerHTML = "共 " + n + " 页";
+      const show = Math.min(n, 3);
+      for (let i = 1; i <= show; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 0.5 });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width; canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d");
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        pdfPages.appendChild(canvas);
+      }
+      if (n > 3) pdfPages.appendChild(document.createElement("div")).textContent = "…";
+      window._pdf = pdf; // 供后续提取复用
+    } catch (err) {
+      pdfInfo.innerHTML = "PDF 加载失败：" + err.message;
+    }
+  }
+
+  // ---------- 模式切换 ----------
+  function setMode(mode) {
+    currentMode = mode;
+    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.mode === mode));
+    formulaOnlineCard.style.display = mode === "formula" ? "" : "none";
+    resultCard.style.display = "none";
+    currentKind = null;
+  }
+  document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+    if (!t.disabled) setMode(t.dataset.mode);
+  }));
+  providerSel.addEventListener("change", () => {
+    const p = providerSel.value;
+    simpletexField.style.display = p === "simpletex" ? "" : "none";
+    mathpixField.style.display = p === "mathpix" ? "" : "none";
+  });
+
+  // 保存密钥到 localStorage
+  [simpletexToken, mathpixAppId, mathpixAppKey].forEach(el => {
+    el.addEventListener("change", () => {
+      localStorage.setItem("ocr_simpletex_token", simpletexToken.value);
+      localStorage.setItem("ocr_mathpix_appid", mathpixAppId.value);
+      localStorage.setItem("ocr_mathpix_appkey", mathpixAppKey.value);
+    });
+  });
+
+  // ---------- Tesseract worker ----------
+  async function getWorker(lang) {
+    if (worker && workerLang === lang) return worker;
+    if (worker) { try { await worker.terminate(); } catch(e){} worker = null; }
+    progressWrap.style.display = "block";
+    setProgress(0, "正在初始化 OCR 引擎（首次需下载语言包）…");
+    worker = await Tesseract.createWorker(lang, 1, {
+      logger: m => {
+        if (m.status === "recognizing text") {
+          setProgress(m.progress, "正在识别文字… " + Math.round(m.progress*100) + "%");
+        } else if (m.status && m.progress !== undefined && m.progress < 1) {
+          setProgress(m.progress, "加载中… " + m.status);
+        }
+      }
+    });
+    workerLang = lang;
+    return worker;
+  }
+  function setProgress(p, txt) {
+    progressBar.style.width = Math.round(p*100) + "%";
+    progressText.textContent = txt || "";
+  }
+  function hideProgress() { progressWrap.style.display = "none"; }
+
+  // ---------- 识别入口 ----------
+  btnRecognize.addEventListener("click", async () => {
+    if (!currentFile) { toast("请先选择文件"); return; }
+    try {
+      btnRecognize.disabled = true;
+      if (currentMode === "text") await recognizeText();
+      else if (currentMode === "table") await recognizeTable();
+      else if (currentMode === "formula") await recognizeFormula();
+      else if (currentMode === "pdf") await recognizePdf();
+    } catch (err) {
+      console.error(err);
+      toast("识别失败：" + (err && err.message ? err.message : err));
+    } finally {
+      btnRecognize.disabled = false;
+      hideProgress();
+    }
+  });
+
+  async function recognizeText() {
+    const w = await getWorker(langSel.value);
+    setProgress(0.9, "识别中…");
+    const { data } = await w.recognize(currentFile);
+    resultText = (data.text || "").replace(/\r\n/g, "\n");
+    currentKind = "text";
+    resultLatex = "";
+    showTextResult("识别完成");
+  }
+
+  async function recognizeTable() {
+    const w = await getWorker(langSel.value);
+    setProgress(0.9, "识别表格…");
+    const { data } = await w.recognize(currentFile);
+    const words = (data.words || []).filter(x => x && x.text && x.text.trim() !== "");
+    const grid = buildGrid(words);
+    if (!grid || grid.length === 0) { toast("未识别到表格结构，已回退为纯文字"); resultText = data.text; currentKind = "text"; showTextResult("识别完成（未检测到表格）"); return; }
+    resultGrid = grid;
+    resultText = grid.map(r => r.join("\t")).join("\n");
+    currentKind = "table";
+    showTableResult(grid, words.length);
+  }
+
+  async function recognizeFormulaLocal() {
+    // 本地：优先用英文识别公式区域（公式多为 ASCII / 数学符号）
+    const w = await getWorker(langSel.value);
+    setProgress(0.9, "识别公式…");
+    const { data } = await w.recognize(currentFile);
+    resultText = (data.text || "").replace(/\r\n/g, "\n");
+    resultLatex = toLatexFragments(resultText);
+    currentKind = "formula";
+    showFormulaResult();
+  }
+
+  // 公式识别：有在线 key 则走在线 API，否则本地尽力而为
+  async function recognizeFormula() {
+    const p = providerSel.value;
+    const hasKey = p === "simpletex" ? !!simpletexToken.value.trim() : (!!mathpixAppId.value.trim() && !!mathpixAppKey.value.trim());
+    if (hasKey) { await recognizeFormulaOnline(); }
+    else { await recognizeFormulaLocal(); }
+  }
+
+  async function recognizeFormulaOnline() {
+    if (!currentFile) { toast("请先选择图片"); return; }
+    const p = providerSel.value;
+    btnRecognize.disabled = true;
+    progressWrap.style.display = "block";
+    try {
+      if (p === "simpletex") {
+        const token = simpletexToken.value.trim();
+        if (!token) { toast("请填写 SimpleTex Token"); return; }
+        setProgress(0.3, "上传到 SimpleTex 识别…");
+        const fd = new FormData();
+        fd.append("file", currentFile, currentFile.name);
+        const r = await fetch("https://server.simpletex.cn/api/latex_ocr_turbo", { method:"POST", headers:{ token }, body: fd });
+        const j = await r.json();
+        if (j && j.status && j.res && j.res.latex) {
+          resultLatex = j.res.latex; resultText = j.res.latex; currentKind = "formula"; showFormulaResult();
+        } else { toast("识别失败：" + (j && (j.error || j.msg) || JSON.stringify(j))); }
+      } else {
+        const appId = mathpixAppId.value.trim(), appKey = mathpixAppKey.value.trim();
+        if (!appId || !appKey) { toast("请填写 Mathpix App ID / App Key"); return; }
+        setProgress(0.3, "上传到 Mathpix 识别…");
+        const dataUrl = await fileToDataUrl(currentFile);
+        const r = await fetch("https://api.mathpix.com/v3/text", {
+          method:"POST",
+          headers:{ "app_id":appId, "app_key":appKey, "Content-Type":"application/json" },
+          body: JSON.stringify({ src: dataUrl, formats:["latex_styled","text"], rm_spaces:true })
+        });
+        const j = await r.json();
+        if (j && j.latex_styled) {
+          resultLatex = j.latex_styled; resultText = j.latex_styled; currentKind = "formula"; showFormulaResult();
+        } else { toast("识别失败：" + (j && j.error || JSON.stringify(j))); }
+      }
+    } catch (err) {
+      toast("在线识别请求失败：" + err.message + "（可能是跨域或密钥无效）");
+    } finally {
+      btnRecognize.disabled = false;
+      hideProgress();
+    }
+  }
+  async function recognizePdf() {
+    let buf, pdf;
+    if (window._pdf && window._pdfFile === currentFile) { pdf = window._pdf; }
+    else {
+      buf = await fileToArrayBuffer(currentFile);
+      pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      window._pdf = pdf; window._pdfFile = currentFile;
+    }
+    const scan = scanCheck.checked;
+    let out = "";
+    if (scan) {
+      const w = await getWorker(langSel.value);
+      for (let i = 1; i <= pdf.numPages; i++) {
+        setProgress(i/pdf.numPages, "OCR 第 " + i + " / " + pdf.numPages + " 页…");
+        const page = await pdf.getPage(i);
+        const vp = page.getViewport({ scale: 2 });
+        const canvas = document.createElement("canvas");
+        canvas.width = vp.width; canvas.height = vp.height;
+        const ctx = canvas.getContext("2d");
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+        const dataUrl = canvas.toDataURL("image/png");
+        const { data } = await w.recognize(dataUrl);
+        out += (i > 1 ? "\n\n" : "") + "===== 第 " + i + " 页 =====\n" + (data.text || "");
+      }
+    } else {
+      for (let i = 1; i <= pdf.numPages; i++) {
+        setProgress(i/pdf.numPages, "提取第 " + i + " / " + pdf.numPages + " 页…");
+        const page = await pdf.getPage(i);
+        const tc = await page.getTextContent();
+        const line = tc.items.map(it => it.str).join(" ");
+        out += (i > 1 ? "\n\n" : "") + "===== 第 " + i + " 页 =====\n" + line;
+      }
+      if (!out.replace(/===== 第 \d+ 页 =====/g, "").trim()) {
+        toast("该 PDF 不含可提取文本（可能是扫描版），请勾选「扫描版 PDF」重试");
+      }
+    }
+    resultText = out.replace(/\r\n/g, "\n");
+    resultLatex = "";
+    currentKind = "text";
+    showTextResult("共提取 " + pdf.numPages + " 页");
+  }
+
+  // ---------- 表格聚类 ----------
+  function buildGrid(words) {
+    if (!words.length) return null;
+    const hts = words.map(w => (w.bbox.y1 - w.bbox.y0)).filter(h => h > 0);
+    const mh = median(hts) || 20;
+    const rowTol = Math.max(4, mh * 0.5);
+
+    // 按 y 中心聚类成行
+    const sorted = [...words].sort((a,b) => ((a.bbox.y0+a.bbox.y1)/2) - ((b.bbox.y0+b.bbox.y1)/2));
+    const rows = [];
+    for (const w of sorted) {
+      const cy = (w.bbox.y0 + w.bbox.y1) / 2;
+      let placed = false;
+      for (const row of rows) {
+        if (Math.abs(cy - row.cy) <= rowTol) {
+          row.words.push(w); row.n++; row.cy = row.cy + (cy - row.cy)/row.n; placed = true; break;
+        }
+      }
+      if (!placed) rows.push({ cy, words:[w], n:1 });
+    }
+    rows.forEach(r => r.words.sort((a,b)=>a.bbox.x0 - b.bbox.x0));
+    rows.sort((a,b)=>a.cy - b.cy);
+
+    // 列：对所有词 x0 做一维聚类
+    const colTol = Math.max(8, mh * 0.8);
+    const xs = words.map(w => w.bbox.x0).sort((a,b)=>a-b);
+    const colCenters = [];
+    for (const x of xs) {
+      const last = colCenters[colCenters.length-1];
+      if (colCenters.length === 0 || x - last.max > colTol) colCenters.push({ sum:x, n:1, min:x, max:x });
+      else { last.sum += x; last.n++; last.max = x; }
+    }
+    const centers = colCenters.map(c => c.sum/c.n);
+
+    const grid = rows.map(r => {
+      const cells = new Array(centers.length).fill("");
+      for (const w of r.words) {
+        let best = 0, bd = Infinity;
+        for (let c = 0; c < centers.length; c++) {
+          const d = Math.abs(w.bbox.x0 - centers[c]);
+          if (d < bd) { bd = d; best = c; }
+        }
+        cells[best] = cells[best] ? cells[best] + " " + w.text : w.text;
+      }
+      return cells;
+    });
+    return grid;
+  }
+
+  // ---------- 结果展示 ----------
+  function showTextResult(stat) {
+    resultCard.style.display = "block";
+    textResult.style.display = "";
+    latexResult.style.display = "none";
+    tableWrap.style.display = "none";
+    textResult.value = resultText;
+    resultStat.textContent = stat + " · " + resultText.length + " 字符";
+    enableExport({ txt:true, md:true, docx:true, csv:false, xlsx:false });
+  }
+  function showTableResult(grid, wordCount) {
+    resultCard.style.display = "block";
+    textResult.style.display = "none";
+    latexResult.style.display = "none";
+    tableWrap.style.display = "";
+    const header = headerCheck.checked;
+    let html = "<table><thead><tr>";
+    const ncol = grid[0].length;
+    if (header) { for (let c=0;c<ncol;c++) html += "<th>" + xmlEsc(grid[0][c]||"") + "</th>"; html += "</tr></thead><tbody>"; }
+    else { for (let c=0;c<ncol;c++) html += "<th>列 " + (c+1) + "</th>"; html += "</tr></thead><tbody>"; }
+    const start = header ? 1 : 0;
+    for (let r=start;r<grid.length;r++) {
+      html += "<tr>";
+      for (let c=0;c<ncol;c++) html += "<td>" + xmlEsc(grid[r][c]||"") + "</td>";
+      html += "</tr>";
+    }
+    html += "</tbody></table>";
+    tableWrap.innerHTML = html;
+    resultStat.textContent = grid.length + " 行 × " + ncol + " 列 · 识别词条 " + wordCount + " 个（基于位置聚类，可能需微调）";
+    enableExport({ txt:true, md:true, docx:true, csv:true, xlsx:true });
+  }
+  function showFormulaResult() {
+    resultCard.style.display = "block";
+    textResult.style.display = "";
+    latexResult.style.display = "";
+    tableWrap.style.display = "none";
+    textResult.value = resultText;
+    latexResult.value = resultLatex;
+    resultStat.textContent = "公式识别（本地为尽力而为，复杂公式建议使用在线识别）";
+    enableExport({ txt:true, md:true, docx:true, csv:false, xlsx:false });
+  }
+  function toLatexFragments(text) {
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return "";
+    return lines.map(l => "\\( " + l + " \\)").join("\n");
+  }
+
+  function enableExport(o) {
+    $("btnTxt").disabled = !o.txt;
+    $("btnMd").disabled = !o.md;
+    $("btnDocx").disabled = !o.docx;
+    $("btnCsv").disabled = !o.csv;
+    $("btnXlsx").disabled = !o.xlsx;
+  }
+
+  // ---------- 导出 ----------
+  function outBase(suffix) { return base(currentFile.name) + suffix; }
+
+  $("btnTxt").addEventListener("click", () => {
+    const blob = new Blob([resultText], { type:"text/plain;charset=utf-8" });
+    downloadBlob(blob, outBase("_ocr.txt"));
+  });
+  $("btnMd").addEventListener("click", () => {
+    let md = resultText;
+    if (currentKind === "table" && resultGrid) md = gridToMarkdown(resultGrid);
+    const blob = new Blob([md], { type:"text/markdown;charset=utf-8" });
+    downloadBlob(blob, outBase("_ocr.md"));
+  });
+  $("btnCsv").addEventListener("click", () => {
+    if (!resultGrid) { toast("当前无表格数据"); return; }
+    const csv = gridToCsv(resultGrid);
+    const blob = new Blob(["\ufeff" + csv], { type:"text/csv;charset=utf-8" });
+    downloadBlob(blob, outBase("_table.csv"));
+  });
+  $("btnXlsx").addEventListener("click", () => {
+    if (!resultGrid) { toast("当前无表格数据"); return; }
+    if (typeof XLSX === "undefined") { toast("XLSX 库未加载，请检查网络"); return; }
+    const ws = XLSX.utils.aoa_to_sheet(resultGrid);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    XLSX.writeFile(wb, outBase("_table.xlsx"));
+  });
+  $("btnDocx").addEventListener("click", async () => {
+    try {
+      let blob;
+      if (currentKind === "table" && resultGrid) blob = await buildDocxTable(resultGrid);
+      else blob = await buildDocxText(resultText);
+      downloadBlob(blob, outBase("_ocr.docx"));
+    } catch (err) {
+      console.error(err); toast("DOCX 生成失败：" + err.message);
+    }
+  });
+
+  function gridToCsv(grid) {
+    return grid.map(r => r.map(c => /[",\n]/.test(c||"") ? '"' + (c||"").replace(/"/g,'""') + '"' : (c||"")).join(",")).join("\r\n");
+  }
+  function gridToMarkdown(grid) {
+    if (!grid.length) return "";
+    const n = grid[0].length;
+    let md = "| " + grid[0].map(c=>c||"").join(" | ") + " |\n";
+    md += "| " + new Array(n).fill("---").join(" | ") + " |\n";
+    for (let i=1;i<grid.length;i++) md += "| " + grid[i].map(c=>c||"").join(" | ") + " |\n";
+    return md;
+  }
+
+  async function buildDocxText(text) {
+    const lines = (text || "").split(/\r?\n/);
+    const paragraphs = lines.map(l => xmlEsc(l));
+    return buildDocxZip(paragraphs, null);
+  }
+  async function buildDocxTable(grid) {
+    if (typeof JSZip === "undefined") throw new Error("JSZip 未加载");
+    return buildDocxZip(null, grid);
+  }
+  async function buildDocxZip(paragraphs, grid) {
+    const zip = new JSZip();
+    const bodyParts = [];
+    if (paragraphs) {
+      paragraphs.forEach(p => bodyParts.push("<w:p><w:r><w:t xml:space=\"preserve\">" + p + "</w:t></w:r></w:p>"));
+    }
+    if (grid) {
+      bodyParts.push("<w:tbl><w:tblPr><w:tblBorders>" +
+        "<w:top w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" +
+        "<w:left w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" +
+        "<w:bottom w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" +
+        "<w:right w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" +
+        "<w:insideH w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" +
+        "<w:insideV w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" +
+        "</w:tblBorders></w:tblPr>");
+      grid.forEach((row, ri) => {
+        bodyParts.push("<w:tr>");
+        row.forEach(cell => {
+          const bold = headerCheck.checked && ri === 0;
+          const rpr = bold ? "<w:rPr><w:b/></w:rPr>" : "";
+          bodyParts.push("<w:tc><w:p><w:r>" + rpr + "<w:t xml:space=\"preserve\">" + xmlEsc(cell||"") + "</w:t></w:r></w:p></w:tc>");
+        });
+        bodyParts.push("</w:tr>");
+      });
+      bodyParts.push("</w:tbl>");
+    }
+    const docXml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+      "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">" +
+      "<w:body>" + bodyParts.join("") +
+      "<w:sectPr><w:pgSz w:w=\"11906\" w:h=\"16838\"/></w:sectPr></w:body></w:document>";
+    const contentTypes = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+      "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
+      "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>" +
+      "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" +
+      "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>" +
+      "</Types>";
+    const rels = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+      "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
+      "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/>" +
+      "</Relationships>";
+    zip.file("[Content_Types].xml", contentTypes);
+    zip.folder("_rels").file(".rels", rels);
+    zip.folder("word").file("document.xml", docXml);
+    return await zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+  }
+})();
+</script>
+</body>
+</html>
