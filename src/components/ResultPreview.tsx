@@ -1,16 +1,53 @@
-import { type FC } from 'react'
+import { type FC, useEffect, useState } from 'react'
 import { useStore } from '../store/useStore'
+import { fetchCardInfos, cardImageUrl, type CardInfo } from '../utils/cardInfo'
 import type { CardCount } from '../types'
+
+type InfoMap = Record<number, CardInfo>
 
 interface SectionCardProps {
   title: string
   tag: string
   cards: CardCount[]
   total: number
+  infos: InfoMap
   limit?: number
 }
 
-const SectionCard: FC<SectionCardProps> = ({ title, tag, cards, total, limit = 20 }) => {
+const CardRow: FC<{ card: CardCount; info?: CardInfo }> = ({ card, info }) => {
+  const [imgFailed, setImgFailed] = useState(false)
+
+  return (
+    <div className="flex items-center gap-2 py-1.5 border-b border-line last:border-0">
+      <div className="w-[30px] h-[44px] shrink-0 bg-canvas border border-line overflow-hidden">
+        {!imgFailed && (
+          <img
+            src={cardImageUrl(card.id)}
+            alt={info?.name ?? String(card.id)}
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            onError={() => setImgFailed(true)}
+            className="w-full h-full object-cover"
+          />
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-[12px] text-ink2 truncate leading-tight">
+          {info?.name ?? '—'}
+        </p>
+        <p className="text-[11px] text-muted font-mono leading-tight mt-0.5">{card.id}</p>
+      </div>
+
+      {card.count > 1 && (
+        <span className="text-[11px] text-muted font-mono shrink-0">×{card.count}</span>
+      )}
+    </div>
+  )
+}
+
+const SectionCard: FC<SectionCardProps> = ({ title, tag, cards, total, infos, limit = 20 }) => {
   return (
     <div className="bg-surface border border-line p-4 h-full">
       <div className="flex items-baseline justify-between mb-3">
@@ -23,17 +60,9 @@ const SectionCard: FC<SectionCardProps> = ({ title, tag, cards, total, limit = 2
         <span className="text-xs text-muted ml-1.5">张</span>
       </div>
 
-      <div className="space-y-0 max-h-[220px] overflow-y-auto">
+      <div className="max-h-[260px] overflow-y-auto">
         {cards.slice(0, limit).map(card => (
-          <div
-            key={card.id}
-            className="flex items-center justify-between text-xs py-1 border-b border-line last:border-0"
-          >
-            <span className="text-ink2 font-mono">{card.id}</span>
-            {card.count > 1 && (
-              <span className="text-muted font-mono">×{card.count}</span>
-            )}
-          </div>
+          <CardRow key={card.id} card={card} info={infos[card.id]} />
         ))}
         {cards.length > limit && (
           <div className="text-xs text-muted pt-2">
@@ -50,6 +79,26 @@ const SectionCard: FC<SectionCardProps> = ({ title, tag, cards, total, limit = 2
 
 const ResultPreview: FC = () => {
   const { mergeResult } = useStore()
+  const [infos, setInfos] = useState<InfoMap>({})
+
+  useEffect(() => {
+    if (!mergeResult) {
+      setInfos({})
+      return
+    }
+    let cancelled = false
+    const ids = [
+      ...mergeResult.main,
+      ...mergeResult.extra,
+      ...mergeResult.side,
+    ].map(card => card.id)
+
+    fetchCardInfos(ids).then(map => {
+      if (!cancelled) setInfos(map)
+    })
+
+    return () => { cancelled = true }
+  }, [mergeResult])
 
   if (!mergeResult) return null
 
@@ -69,6 +118,7 @@ const ResultPreview: FC = () => {
             tag="#main"
             cards={mergeResult.main}
             total={mergeResult.totalMain}
+            infos={infos}
             limit={30}
           />
         </div>
@@ -77,14 +127,20 @@ const ResultPreview: FC = () => {
           tag="#extra"
           cards={mergeResult.extra}
           total={mergeResult.totalExtra}
+          infos={infos}
         />
         <SectionCard
           title="备牌"
           tag="!side"
           cards={mergeResult.side}
           total={mergeResult.totalSide}
+          infos={infos}
         />
       </div>
+
+      <p className="text-[11px] text-muted mt-2">
+        卡名与卡图来自 ygocdb.com，仅供识别使用
+      </p>
     </div>
   )
 }
