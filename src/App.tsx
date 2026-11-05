@@ -15,42 +15,39 @@ const App: FC = () => {
   const [mode, setMode] = useState<Mode>('manual')
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="max-w-3xl w-full mx-auto px-4 pb-12 flex flex-col gap-5">
+    <div className="min-h-screen flex flex-col bg-canvas">
+      <div className="max-w-[720px] w-full mx-auto px-5 pb-14 flex flex-col gap-6">
         <Header />
 
         {/* 模式切换 */}
-        <div className="flex justify-center animate-fade-in">
-          <div className="
-            inline-flex rounded-lg border border-cyber-border bg-cyber-card
-            p-0.5
-          ">
+        <div className="flex animate-fade-in">
+          <div className="inline-flex border border-line bg-surface p-0.5 gap-0.5">
             <button
               onClick={() => setMode('manual')}
               className={`
-                flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium
-                transition-all duration-200
+                flex items-center gap-1.5 px-3.5 py-1.5 text-[13px] font-medium
+                transition-colors duration-150
                 ${mode === 'manual'
-                  ? 'bg-cyber-purple/20 text-cyber-purple shadow-[0_0_10px_rgba(168,85,247,0.2)]'
-                  : 'text-gray-500 hover:text-gray-300'
+                  ? 'bg-ink text-white'
+                  : 'text-ink2 hover:text-ink'
                 }
               `}
             >
-              <ArrowRightLeft className="w-4 h-4" />
+              <ArrowRightLeft className="w-3.5 h-3.5" />
               手动合并
             </button>
             <button
               onClick={() => setMode('random')}
               className={`
-                flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium
-                transition-all duration-200
+                flex items-center gap-1.5 px-3.5 py-1.5 text-[13px] font-medium
+                transition-colors duration-150
                 ${mode === 'random'
-                  ? 'bg-cyber-cyan/20 text-cyber-cyan shadow-[0_0_10px_rgba(34,211,238,0.2)]'
-                  : 'text-gray-500 hover:text-gray-300'
+                  ? 'bg-ink text-white'
+                  : 'text-ink2 hover:text-ink'
                 }
               `}
             >
-              <Dices className="w-4 h-4" />
+              <Dices className="w-3.5 h-3.5" />
               随机构筑
             </button>
           </div>
@@ -71,7 +68,7 @@ const App: FC = () => {
         <DeckResources />
       </div>
 
-      <footer className="mt-auto py-4 text-center text-xs text-gray-600">
+      <footer className="mt-auto py-5 border-t border-line text-center text-xs text-muted">
         YDK Merger · 纯前端工具 · 数据不上传服务器
       </footer>
     </div>

@@ -30,18 +30,18 @@ const UploadZone: FC = () => {
   }, [])
 
   return (
-    <div className="animate-slide-up">
+    <div className="animate-fade-in">
       <div
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onClick={() => inputRef.current?.click()}
         className={`
-          relative border-2 border-dashed rounded-xl p-10 text-center cursor-pointer
-          transition-all duration-300 group
+          border border-dashed p-10 text-center cursor-pointer
+          transition-colors duration-150
           ${isDragging
-            ? 'border-cyber-purple bg-cyber-purple/10 shadow-[0_0_30px_rgba(168,85,247,0.3)]'
-            : 'border-cyber-border hover:border-cyber-purple/60 hover:bg-cyber-purple/5'
+            ? 'border-accent bg-accent-soft'
+            : 'border-line2 bg-surface hover:border-accent hover:bg-accent-soft'
           }
           ${isLoading ? 'pointer-events-none opacity-60' : ''}
         `}
@@ -60,23 +60,18 @@ const UploadZone: FC = () => {
 
         {isLoading ? (
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-10 h-10 text-cyber-purple animate-spin" />
-            <span className="text-gray-400 text-sm">正在解析文件...</span>
+            <Loader2 className="w-5 h-5 text-accent animate-spin" />
+            <span className="text-ink2 text-[13px]">正在解析文件</span>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3">
-            <div className="
-              w-14 h-14 rounded-full bg-cyber-purple/10 flex items-center justify-center
-              group-hover:bg-cyber-purple/20 transition-colors duration-300
-            ">
-              <Upload className="w-7 h-7 text-cyber-purple group-hover:scale-110 transition-transform duration-300" />
-            </div>
+            <Upload className="w-5 h-5 text-ink2" />
             <div>
-              <p className="text-gray-300 font-medium">
-                拖拽 .ydk 文件到此处
+              <p className="text-ink text-[13.5px] font-medium">
+                将 .ydk 文件拖到这里
               </p>
-              <p className="text-gray-500 text-xs mt-1">
-                或点击选择文件（支持多选）
+              <p className="text-muted text-xs mt-1">
+                或点击选择文件，支持多选
               </p>
             </div>
           </div>
@@ -84,11 +79,11 @@ const UploadZone: FC = () => {
       </div>
 
       {error && (
-        <div className="mt-3 px-4 py-2.5 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center justify-between animate-fade-in">
-          <span className="text-red-400 text-sm">{error}</span>
+        <div className="mt-3 px-3 py-2 bg-surface border border-danger/30 flex items-center justify-between animate-fade-in">
+          <span className="text-danger text-[13px]">{error}</span>
           <button
             onClick={clearError}
-            className="text-red-400 hover:text-red-300 text-xs ml-2 transition-colors"
+            className="text-muted hover:text-danger text-xs transition-colors duration-150"
           >
             关闭
           </button>

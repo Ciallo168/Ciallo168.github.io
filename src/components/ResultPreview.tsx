@@ -1,52 +1,47 @@
 import { type FC } from 'react'
-import { Layers, Zap, Shield } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { CardCount } from '../types'
 
 interface SectionCardProps {
   title: string
-  icon: React.ReactNode
-  color: string
+  tag: string
   cards: CardCount[]
   total: number
+  limit?: number
 }
 
-const SectionCard: FC<SectionCardProps> = ({ title, icon, color, cards, total }) => {
+const SectionCard: FC<SectionCardProps> = ({ title, tag, cards, total, limit = 20 }) => {
   return (
-    <div className="
-      flex-1 min-w-[200px] rounded-xl p-4
-      bg-cyber-card border border-cyber-border
-      hover:border-cyber-purple/30 transition-all duration-300
-    ">
-      <div className="flex items-center gap-2 mb-3">
-        <div className={`${color}`}>{icon}</div>
-        <h3 className="text-sm font-semibold text-gray-300">{title}</h3>
+    <div className="bg-surface border border-line p-4 h-full">
+      <div className="flex items-baseline justify-between mb-3">
+        <h3 className="text-[13px] font-medium text-ink">{title}</h3>
+        <span className="text-[11px] text-muted font-mono">{tag}</span>
       </div>
 
-      <div className="mb-3">
-        <span className="text-2xl font-bold font-mono text-white">{total}</span>
-        <span className="text-xs text-gray-500 ml-1">张</span>
+      <div className="mb-3 pb-3 border-b border-line">
+        <span className="text-[22px] font-semibold font-mono text-ink leading-none">{total}</span>
+        <span className="text-xs text-muted ml-1.5">张</span>
       </div>
 
-      <div className="space-y-1 max-h-[160px] overflow-y-auto pr-1">
-        {cards.slice(0, 20).map(card => (
+      <div className="space-y-0 max-h-[220px] overflow-y-auto">
+        {cards.slice(0, limit).map(card => (
           <div
             key={card.id}
-            className="flex items-center justify-between text-xs py-0.5"
+            className="flex items-center justify-between text-xs py-1 border-b border-line last:border-0"
           >
-            <span className="text-gray-400 font-mono">{card.id}</span>
+            <span className="text-ink2 font-mono">{card.id}</span>
             {card.count > 1 && (
-              <span className="text-cyber-purple/80 font-mono">x{card.count}</span>
+              <span className="text-muted font-mono">×{card.count}</span>
             )}
           </div>
         ))}
-        {cards.length > 20 && (
-          <div className="text-xs text-gray-500 pt-1">
-            ... 还有 {cards.length - 20} 种卡片
+        {cards.length > limit && (
+          <div className="text-xs text-muted pt-2">
+            还有 {cards.length - limit} 种未显示
           </div>
         )}
         {cards.length === 0 && (
-          <div className="text-xs text-gray-600">暂无卡片</div>
+          <div className="text-xs text-muted py-1">无卡片</div>
         )}
       </div>
     </div>
@@ -59,33 +54,33 @@ const ResultPreview: FC = () => {
   if (!mergeResult) return null
 
   return (
-    <div className="animate-slide-up">
-      <div className="flex items-center gap-2 mb-3">
-        <Zap className="w-4 h-4 text-cyber-gold" />
-        <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
-          合并结果 · {mergeResult.sourceDeckCount} 个卡组
-        </h2>
+    <div className="animate-fade-in pt-2">
+      <div className="flex items-baseline gap-2 mb-2.5">
+        <h2 className="text-[13px] font-medium text-ink">合并结果</h2>
+        <span className="text-xs text-muted">
+          来自 {mergeResult.sourceDeckCount} 个卡组
+        </span>
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <div className="sm:col-span-2 sm:row-span-2">
+          <SectionCard
+            title="主卡组"
+            tag="#main"
+            cards={mergeResult.main}
+            total={mergeResult.totalMain}
+            limit={30}
+          />
+        </div>
         <SectionCard
-          title="主卡组 #main"
-          icon={<Layers className="w-4 h-4" />}
-          color="text-cyber-purple"
-          cards={mergeResult.main}
-          total={mergeResult.totalMain}
-        />
-        <SectionCard
-          title="额外卡组 #extra"
-          icon={<Zap className="w-4 h-4" />}
-          color="text-cyber-cyan"
+          title="额外卡组"
+          tag="#extra"
           cards={mergeResult.extra}
           total={mergeResult.totalExtra}
         />
         <SectionCard
-          title="备牌 !side"
-          icon={<Shield className="w-4 h-4" />}
-          color="text-cyber-gold"
+          title="备牌"
+          tag="!side"
           cards={mergeResult.side}
           total={mergeResult.totalSide}
         />

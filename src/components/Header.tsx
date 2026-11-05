@@ -1,43 +1,31 @@
 import { type FC } from 'react'
-import { Sparkles, ArrowLeft, Home } from 'lucide-react'
+import { Home } from 'lucide-react'
 
 const Header: FC = () => {
   return (
-    <header className="pt-6 pb-6 animate-fade-in">
-      {/* 分级导航面包屑 */}
-      <div className="flex items-center gap-2 mb-4 text-xs">
+    <header className="pt-6 pb-5 border-b border-line">
+      <nav className="flex items-center gap-2 mb-5 text-xs text-muted">
         <a
           href="/"
           className="
-            flex items-center gap-1 px-3 py-1.5 rounded-lg
-            text-gray-400 bg-cyber-card border border-cyber-border
-            hover:text-cyber-purple hover:border-cyber-purple/40
-            hover:shadow-[0_0_10px_rgba(168,85,247,0.15)]
-            transition-all duration-300
+            inline-flex items-center gap-1 px-2 py-1 border border-line bg-surface
+            text-ink2 hover:text-accent hover:border-accent
+            transition-colors duration-150
           "
         >
           <Home className="w-3.5 h-3.5" />
           首页
         </a>
-        <span className="text-gray-600">/</span>
-        <span className="text-cyber-purple font-medium">YDK 卡组合并工具</span>
-      </div>
+        <span className="text-line2">/</span>
+        <span>YDK 卡组合并工具</span>
+      </nav>
 
-      <div className="text-center">
-        <div className="inline-flex items-center gap-3 mb-2">
-          <Sparkles className="w-7 h-7 text-cyber-gold" />
-          <h1 className="text-4xl font-bold font-mono neon-text text-cyber-purple tracking-tight">
-            YDK Merger
-          </h1>
-          <Sparkles className="w-7 h-7 text-cyber-gold" />
-        </div>
-        <p className="text-gray-400 text-sm font-light tracking-wide">
-          游戏王卡组文件合并工具 — 上传多个 .ydk 文件，一键合并导出
-        </p>
-        <div className="mt-3 flex justify-center">
-          <div className="h-px w-32 bg-gradient-to-r from-transparent via-cyber-purple/50 to-transparent" />
-        </div>
-      </div>
+      <h1 className="text-[22px] font-semibold tracking-tight text-ink leading-snug">
+        YDK 卡组合并工具
+      </h1>
+      <p className="text-[13px] text-muted mt-1.5 leading-relaxed max-w-[46em]">
+        上传多个 .ydk 文件，按主卡组、额外卡组、备牌三段合并后导出。文件只在浏览器本地处理。
+      </p>
     </header>
   )
 }

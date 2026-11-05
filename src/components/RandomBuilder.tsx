@@ -1,8 +1,8 @@
 import { type FC, useState, useCallback } from 'react'
-import { Shuffle, Loader2, Download, Dices, Layers, Zap, Shield } from 'lucide-react'
+import { Shuffle, Loader2, Download } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { parseYdkContent, mergeDecks, downloadYdk } from '../utils/ydkParser'
-import type { YdkDeck, MergeResult } from '../types'
+import type { YdkDeck } from '../types'
 
 /* ========== 卡组资源清单 ========== */
 
@@ -53,6 +53,12 @@ interface SelectedInfo {
   spells: number
   traps: number
 }
+
+const numInput = `
+  w-14 px-2 py-1 text-[13px] text-center font-mono text-ink
+  bg-surface border border-line
+  focus:outline-none focus:border-accent transition-colors duration-150
+`
 
 const RandomBuilder: FC = () => {
   const [deckCount, setDeckCount] = useState(2)
@@ -118,91 +124,70 @@ const RandomBuilder: FC = () => {
   }, [deckCount, engineCount, monsterCount, spellCount, trapCount, setMergeResult])
 
   return (
-    <div className="animate-slide-up space-y-4">
+    <div className="animate-fade-in space-y-5">
       {/* 标题 */}
-      <div className="flex items-center gap-2">
-        <Dices className="w-4 h-4 text-cyber-cyan" />
-        <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
-          随机构筑
-        </h2>
-        <span className="text-xs text-gray-600">自动随机合并 · 一键导出</span>
+      <div>
+        <h2 className="text-[13px] font-medium text-ink">随机构筑</h2>
+        <p className="text-xs text-muted mt-1">
+          从预置卡组中随机抽取，合并结果可直接导出。
+        </p>
       </div>
 
       {/* 设置面板 */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="col-span-2 sm:col-span-1 space-y-1">
-          <label className="text-xs text-gray-500">自选卡组</label>
-          <div className="flex items-center gap-2">
+          <label className="text-xs text-muted">自选卡组</label>
+          <div className="flex items-center gap-1.5">
             <input
               type="number" min={0} max={CUSTOM_DECKS.length}
               value={deckCount}
               onChange={e => setDeckCount(Math.max(0, Math.min(CUSTOM_DECKS.length, parseInt(e.target.value) || 0)))}
-              className="
-                w-14 px-2 py-1.5 rounded-md text-sm text-center font-mono
-                bg-cyber-bg border border-cyber-border text-gray-300
-                focus:outline-none focus:border-cyber-purple/60 transition-colors
-              "
+              className={numInput}
             />
-            <span className="text-xs text-gray-600">/ {CUSTOM_DECKS.length} 个</span>
+            <span className="text-xs text-muted">/ {CUSTOM_DECKS.length}</span>
           </div>
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs text-gray-500">小轴</label>
-          <div className="flex items-center gap-2">
+          <label className="text-xs text-muted">小轴</label>
+          <div className="flex items-center gap-1.5">
             <input
               type="number" min={0} max={ENGINES.length}
               value={engineCount}
               onChange={e => setEngineCount(Math.max(0, Math.min(ENGINES.length, parseInt(e.target.value) || 0)))}
-              className="
-                w-14 px-2 py-1.5 rounded-md text-sm text-center font-mono
-                bg-cyber-bg border border-cyber-border text-gray-300
-                focus:outline-none focus:border-cyber-purple/60 transition-colors
-              "
+              className={numInput}
             />
-            <span className="text-xs text-gray-600">/ {ENGINES.length} 个</span>
+            <span className="text-xs text-muted">/ {ENGINES.length}</span>
           </div>
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs text-gray-500">怪兽</label>
+          <label className="text-xs text-muted">怪兽</label>
           <input
             type="number" min={0} max={99}
             value={monsterCount}
             onChange={e => setMonsterCount(Math.max(0, parseInt(e.target.value) || 0))}
-            className="
-              w-14 px-2 py-1.5 rounded-md text-sm text-center font-mono
-              bg-cyber-bg border border-cyber-border text-gray-300
-              focus:outline-none focus:border-cyber-purple/60 transition-colors
-            "
+            className={numInput}
           />
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs text-gray-500">魔法</label>
+          <label className="text-xs text-muted">魔法</label>
           <input
             type="number" min={0} max={99}
             value={spellCount}
             onChange={e => setSpellCount(Math.max(0, parseInt(e.target.value) || 0))}
-            className="
-              w-14 px-2 py-1.5 rounded-md text-sm text-center font-mono
-              bg-cyber-bg border border-cyber-border text-gray-300
-              focus:outline-none focus:border-cyber-purple/60 transition-colors
-            "
+            className={numInput}
           />
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs text-gray-500">陷阱</label>
+          <label className="text-xs text-muted">陷阱</label>
           <input
             type="number" min={0} max={99}
             value={trapCount}
             onChange={e => setTrapCount(Math.max(0, parseInt(e.target.value) || 0))}
-            className="
-              w-14 px-2 py-1.5 rounded-md text-sm text-center font-mono
-              bg-cyber-bg border border-cyber-border text-gray-300
-              focus:outline-none focus:border-cyber-purple/60 transition-colors
-            "
+            className={numInput}
           />
         </div>
       </div>
@@ -212,22 +197,20 @@ const RandomBuilder: FC = () => {
         onClick={handleGenerate}
         disabled={isGenerating || (deckCount === 0 && engineCount === 0 && monsterCount === 0 && spellCount === 0 && trapCount === 0)}
         className="
-          flex items-center gap-2 px-8 py-3 rounded-lg font-medium text-sm
-          bg-cyber-cyan hover:bg-cyber-cyan/80 text-cyber-bg
-          shadow-[0_0_20px_rgba(34,211,238,0.3)]
-          hover:shadow-[0_0_30px_rgba(34,211,238,0.5)]
-          disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none
-          transition-all duration-300 active:scale-95
+          flex items-center gap-2 px-4 py-2 text-[13px] font-medium
+          bg-accent text-white hover:bg-[#336a4a]
+          disabled:bg-line disabled:text-muted disabled:cursor-not-allowed
+          transition-colors duration-150
         "
       >
         {isGenerating ? (
           <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            正在生成...
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            正在生成
           </>
         ) : (
           <>
-            <Shuffle className="w-4 h-4" />
+            <Shuffle className="w-3.5 h-3.5" />
             随机生成卡组
           </>
         )}
@@ -235,26 +218,30 @@ const RandomBuilder: FC = () => {
 
       {/* 选中结果展示 */}
       {selectedInfo && !isGenerating && (
-        <div className="
-          rounded-xl p-4 border border-cyber-border bg-cyber-card/50
-          animate-fade-in space-y-2
-        ">
-          <p className="text-xs text-gray-400">本次随机选取：</p>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+        <div className="animate-fade-in space-y-1.5 pt-1">
+          <p className="text-xs text-muted">本次随机选取</p>
+          <div className="space-y-1 text-xs text-ink2">
             {selectedInfo.decks.length > 0 && (
-              <span className="text-cyber-purple">
-                🏗️ 卡组 ({selectedInfo.decks.length})：{selectedInfo.decks.join('、')}
-              </span>
+              <p>
+                <span className="text-muted">卡组</span>
+                <span className="font-mono ml-2">({selectedInfo.decks.length})</span>
+                <span className="ml-2">{selectedInfo.decks.join('、')}</span>
+              </p>
             )}
             {selectedInfo.engines.length > 0 && (
-              <span className="text-cyber-cyan">
-                🔧 小轴 ({selectedInfo.engines.length})：{selectedInfo.engines.join('、')}
-              </span>
+              <p>
+                <span className="text-muted">小轴</span>
+                <span className="font-mono ml-2">({selectedInfo.engines.length})</span>
+                <span className="ml-2">{selectedInfo.engines.join('、')}</span>
+              </p>
             )}
             {(selectedInfo.monsters > 0 || selectedInfo.spells > 0 || selectedInfo.traps > 0) && (
-              <span className="text-cyber-gold">
-                🎲 卡池：怪兽{selectedInfo.monsters}张 + 魔法{selectedInfo.spells}张 + 陷阱{selectedInfo.traps}张
-              </span>
+              <p>
+                <span className="text-muted">卡池</span>
+                <span className="ml-2 font-mono">
+                  怪兽 {selectedInfo.monsters} · 魔法 {selectedInfo.spells} · 陷阱 {selectedInfo.traps}
+                </span>
+              </p>
             )}
           </div>
         </div>
@@ -262,53 +249,44 @@ const RandomBuilder: FC = () => {
 
       {/* 结果预览 + 下载 */}
       {mergeResult && !isGenerating && (
-        <div className="animate-slide-up space-y-3">
+        <div className="animate-fade-in space-y-3 pt-1">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-cyber-gold" />
-              <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
-                随机结果
-              </h2>
-            </div>
+            <h2 className="text-[13px] font-medium text-ink">随机结果</h2>
             <button
               onClick={() => downloadYdk(mergeResult, 'random_deck.ydk')}
               className="
-                flex items-center gap-2 px-5 py-2 rounded-lg font-medium text-sm
-                bg-cyber-gold hover:bg-cyber-gold/80 text-cyber-bg
-                shadow-[0_0_20px_rgba(245,158,11,0.3)]
-                hover:shadow-[0_0_30px_rgba(245,158,11,0.5)]
-                transition-all duration-300 active:scale-95
+                flex items-center gap-2 px-4 py-2 text-[13px] font-medium
+                bg-surface border border-line2 text-ink2
+                hover:border-accent hover:text-accent
+                transition-colors duration-150
               "
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-3.5 h-3.5" />
               下载 random_deck.ydk
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <div className="flex-1 min-w-[200px] rounded-xl p-4 bg-cyber-card border border-cyber-border">
-              <div className="flex items-center gap-2 mb-3">
-                <Layers className="w-4 h-4 text-cyber-purple" />
-                <h3 className="text-sm font-semibold text-gray-300">主卡组 #main</h3>
-              </div>
-              <span className="text-2xl font-bold font-mono text-white">{mergeResult.totalMain}</span>
-              <span className="text-xs text-gray-500 ml-1">张</span>
+          <div className="grid grid-cols-3 border border-line bg-surface">
+            <div className="p-4 border-r border-line">
+              <p className="text-xs text-muted mb-2">主卡组</p>
+              <span className="text-[22px] font-semibold font-mono text-ink leading-none">
+                {mergeResult.totalMain}
+              </span>
+              <span className="text-xs text-muted ml-1.5">张</span>
             </div>
-            <div className="flex-1 min-w-[200px] rounded-xl p-4 bg-cyber-card border border-cyber-border">
-              <div className="flex items-center gap-2 mb-3">
-                <Zap className="w-4 h-4 text-cyber-cyan" />
-                <h3 className="text-sm font-semibold text-gray-300">额外卡组 #extra</h3>
-              </div>
-              <span className="text-2xl font-bold font-mono text-white">{mergeResult.totalExtra}</span>
-              <span className="text-xs text-gray-500 ml-1">张</span>
+            <div className="p-4 border-r border-line">
+              <p className="text-xs text-muted mb-2">额外卡组</p>
+              <span className="text-[22px] font-semibold font-mono text-ink leading-none">
+                {mergeResult.totalExtra}
+              </span>
+              <span className="text-xs text-muted ml-1.5">张</span>
             </div>
-            <div className="flex-1 min-w-[200px] rounded-xl p-4 bg-cyber-card border border-cyber-border">
-              <div className="flex items-center gap-2 mb-3">
-                <Shield className="w-4 h-4 text-cyber-gold" />
-                <h3 className="text-sm font-semibold text-gray-300">备牌 !side</h3>
-              </div>
-              <span className="text-2xl font-bold font-mono text-white">{mergeResult.totalSide}</span>
-              <span className="text-xs text-gray-500 ml-1">张</span>
+            <div className="p-4">
+              <p className="text-xs text-muted mb-2">备牌</p>
+              <span className="text-[22px] font-semibold font-mono text-ink leading-none">
+                {mergeResult.totalSide}
+              </span>
+              <span className="text-xs text-muted ml-1.5">张</span>
             </div>
           </div>
         </div>
