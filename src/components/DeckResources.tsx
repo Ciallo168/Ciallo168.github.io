@@ -5,6 +5,7 @@ import { useStore } from '../store/useStore'
 
 interface DeckGroup {
   name: string
+  dir: string
   icon: LucideIcon
   files: { name: string; main: number; extra: number; side: number }[]
 }
@@ -12,6 +13,7 @@ interface DeckGroup {
 const deckGroups: DeckGroup[] = [
   {
     name: '随机卡池',
+    dir: '随机卡池',
     icon: Dices,
     files: [
       { name: '怪兽.ydk', main: 16, extra: 15, side: 13 },
@@ -21,6 +23,7 @@ const deckGroups: DeckGroup[] = [
   },
   {
     name: '自选卡组',
+    dir: '自选',
     icon: Layers,
     files: [
       { name: 'll.ydk', main: 15, extra: 5, side: 1 },
@@ -41,6 +44,7 @@ const deckGroups: DeckGroup[] = [
   },
   {
     name: '自选小轴',
+    dir: '自选小轴',
     icon: Wrench,
     files: [
       { name: '刻魔小轴.ydk', main: 4, extra: 2, side: 0 },
@@ -66,15 +70,17 @@ const DeckResources: FC = () => {
   const [expanded, setExpanded] = useState(false)
   const [addedNames, setAddedNames] = useState<Set<string>>(new Set())
   const [loadingName, setLoadingName] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const { addDecks } = useStore()
 
-  const handleAddToMerger = useCallback(async (groupName: string, fileName: string, e: React.MouseEvent) => {
+  const handleAddToMerger = useCallback(async (dir: string, fileName: string, e: React.MouseEvent) => {
     e.preventDefault()
     if (loadingName) return
 
     setLoadingName(fileName)
+    setErrorMsg(null)
     try {
-      const url = `./ydk-decks/${encodeURIComponent(groupName)}/${encodeURIComponent(fileName)}`
+      const url = `./ydk-decks/${encodeURIComponent(dir)}/${encodeURIComponent(fileName)}`
       const resp = await fetch(url)
       if (!resp.ok) throw new Error('加载失败')
       const text = await resp.text()
@@ -94,7 +100,8 @@ const DeckResources: FC = () => {
         })
       }, 1500)
     } catch {
-      // silently fail, user can still download manually
+      setErrorMsg(`无法加载 ${fileName}，请稍后重试`)
+      setTimeout(() => setErrorMsg(null), 3000)
     } finally {
       setLoadingName(null)
     }
@@ -124,6 +131,9 @@ const DeckResources: FC = () => {
           <p className="text-xs text-muted leading-relaxed pt-3">
             点击文件名加载到上方合并区，点击右侧图标下载到本地。
           </p>
+          {errorMsg && (
+            <p className="text-xs text-danger">{errorMsg}</p>
+          )}
           {deckGroups.map(group => {
             const GroupIcon = group.icon
             return (
@@ -146,7 +156,7 @@ const DeckResources: FC = () => {
                         "
                       >
                         <button
-                          onClick={(e) => handleAddToMerger(group.name, file.name, e)}
+                          onClick={(e) => handleAddToMerger(group.dir, file.name, e)}
                           disabled={isLoading}
                           className="
                             inline-flex items-center gap-1.5 px-2 py-1
@@ -166,7 +176,7 @@ const DeckResources: FC = () => {
                           {file.name.replace('.ydk', '')}
                         </button>
                         <a
-                          href={`./ydk-decks/${group.name}/${file.name}`}
+                          href={`./ydk-decks/${group.dir}/${file.name}`}
                           download
                           className="
                             px-2 py-1 border-l border-line
