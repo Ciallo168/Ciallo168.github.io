@@ -1,6 +1,6 @@
 import { type FC, useRef, useState } from 'react'
 import { cardImageUrl, type CardInfo } from '../utils/cardInfo'
-import { useCardTip } from '../store/useCardTip'
+import { useCardTip, scheduleHideTip, cancelHideTip } from '../store/useCardTip'
 
 interface CardRowProps {
   id: number
@@ -15,17 +15,17 @@ const sizeMap = {
 }
 
 const TIP_WIDTH = 288
-const TIP_HEIGHT = 232
+const TIP_HEIGHT = 312
 const GAP = 10
 
 const CardRow: FC<CardRowProps> = ({ id, count, info, size = 'md' }) => {
   const [imgFailed, setImgFailed] = useState(false)
   const rowRef = useRef<HTMLDivElement>(null)
   const showTip = useCardTip(state => state.show)
-  const hideTip = useCardTip(state => state.hide)
   const s = sizeMap[size]
 
   const handleEnter = () => {
+    cancelHideTip()
     const rect = rowRef.current?.getBoundingClientRect()
     if (!rect) return
 
@@ -59,7 +59,7 @@ const CardRow: FC<CardRowProps> = ({ id, count, info, size = 'md' }) => {
     <div
       ref={rowRef}
       onMouseEnter={handleEnter}
-      onMouseLeave={hideTip}
+      onMouseLeave={scheduleHideTip}
       className="flex items-center gap-2 py-1.5 border-b border-line last:border-0"
     >
       <div className={`${s.box} shrink-0 bg-canvas border border-line overflow-hidden`}>
