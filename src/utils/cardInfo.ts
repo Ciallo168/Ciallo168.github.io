@@ -4,9 +4,11 @@ export interface CardInfo {
   id: number
   cid: number
   name: string
+  types?: string
+  desc?: string
 }
 
-const CACHE_KEY = 'ydk-card-info-v1'
+const CACHE_KEY = 'ydk-card-info-v2'
 const API_URL = 'https://ygocdb.com/api/v0/cardset'
 const CHUNK_SIZE = 60
 const REQUEST_TIMEOUT = 8000
@@ -40,7 +42,7 @@ export function cardImageUrl(id: number): string {
 interface CardsetEntry {
   id?: number
   cid?: number
-  text?: { name?: string; cn_name?: string }
+  text?: { name?: string; cn_name?: string; types?: string; desc?: string }
 }
 
 async function requestChunk(ids: number[]): Promise<void> {
@@ -60,7 +62,13 @@ async function requestChunk(ids: number[]): Promise<void> {
       const id = Number(entry?.id ?? key)
       const name = entry?.text?.name || entry?.text?.cn_name
       if (!id || !name) continue
-      cache[String(id)] = { id, cid: Number(entry?.cid ?? 0), name }
+      cache[String(id)] = {
+        id,
+        cid: Number(entry?.cid ?? 0),
+        name,
+        types: entry?.text?.types,
+        desc: entry?.text?.desc,
+      }
     }
   } catch {
     // 网络异常时保留已有缓存，未命中的卡片只显示编号

@@ -8,6 +8,7 @@ import ActionBar from './components/ActionBar'
 import ResultPreview from './components/ResultPreview'
 import DeckResources from './components/DeckResources'
 import RandomBuilder from './components/RandomBuilder'
+import CardTooltip from './components/CardTooltip'
 
 type Mode = 'manual' | 'random'
 
@@ -71,6 +72,8 @@ const App: FC = () => {
       <footer className="mt-auto py-5 border-t border-line text-center text-xs text-muted">
         YDK Merger · 纯前端工具 · 数据不上传服务器
       </footer>
+
+      <CardTooltip />
     </div>
   )
 }
