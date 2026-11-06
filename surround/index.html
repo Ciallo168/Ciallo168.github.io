@@ -3,249 +3,688 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MP3 环绕音处理</title>
+<title>MP3 环绕音处理 · 浏览器内完成</title>
+<meta name="description" content="给 MP3 指定时间段加入 360 度环绕声像，戴耳机试听，导出 WAV 或 MP3。全部在浏览器本地完成。" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Mona+Sans:wdth,wght@100,300;100,400;100,500;125,300&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet" />
 <style>
-  :root {
-    --bg: #0a0a0f; --card: #12121a; --card-2: #17171f; --border: #26262e;
-    --purple: #a855f7; --cyan: #22d3ee; --gold: #f59e0b; --green: #34d399;
-    --text: #e5e5e5; --muted: #8888a0;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
-    background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(34,211,238,.10), transparent),
-               radial-gradient(ellipse 60% 40% at 80% 110%, rgba(168,85,247,.10), transparent), var(--bg);
-    color: var(--text); min-height: 100vh; display: flex; flex-direction: column;
-  }
-  .wrap { width: 100%; max-width: 880px; margin: 0 auto; padding: 20px 16px 40px; flex: 1; }
+/* Hallmark · redesign: full · scope: app · theme: Midnight · genre: modern-minimal · v2.5
+   nav: a back link and the page name, no wordmark row · footer: one line, no columns · job: process and export · surface: none
+   pre-emit critique: P4 H4 E4 S4 R4 · weakest: P, an instrument page makes no argument; the time readout is the one claim it makes, so it is the largest thing on the page */
+:root {
+  --color-paper: oklch(14% 0.048 264);
+  --color-paper-2: oklch(18.5% 0.052 264);
+  --color-paper-3: oklch(23% 0.055 264);
+  --color-ink: oklch(95% 0.016 250);
+  --color-ink-2: oklch(88% 0.05 245);
+  --color-muted: oklch(73% 0.04 256);
+  --color-rule: oklch(29% 0.058 264);
+  --color-rule-2: oklch(40% 0.06 262);
+  --color-accent: oklch(80% 0.11 230);
+  --color-accent-2: oklch(58% 0.1 236);
+  --color-accent-ink: oklch(16% 0.05 264);
+  --color-focus: oklch(84% 0.12 228);
 
-  .crumb { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 18px; }
-  .crumb a {
-    display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: 8px;
-    color: var(--muted); background: var(--card); border: 1px solid var(--border); text-decoration: none; transition: .25s;
-  }
-  .crumb a:hover { color: var(--cyan); border-color: rgba(34,211,238,.4); box-shadow: 0 0 10px rgba(34,211,238,.15); }
-  .crumb .sep { color: #444; } .crumb .cur { color: var(--cyan); font-weight: 500; }
+  --font-display: "Mona Sans", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-display);
 
-  h1 {
-    text-align: center; font-size: 30px; font-weight: 700; letter-spacing: 1px; margin-bottom: 4px;
-    background: linear-gradient(90deg, var(--cyan), var(--purple));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-  }
-  .sub { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 22px; }
+  --radius-card: 0;
+  --radius-pill: 0;
+  --rule-hair: 1px;
+  --shadow-card: 0 24px 48px -24px oklch(6% 0.04 264 / 0.7);
+  --tracking-display: -0.015em;
+  --display-weight: 300;
+  --display-stretch: 125%;
 
-  #dropzone {
-    border: 2px dashed var(--border); border-radius: 16px; background: rgba(18,18,26,.6);
-    padding: 36px 20px; text-align: center; cursor: pointer; transition: .25s;
-  }
-  #dropzone:hover, #dropzone.drag { border-color: var(--cyan); background: rgba(34,211,238,.06); box-shadow: 0 0 30px rgba(34,211,238,.14); }
-  #dropzone .icon { font-size: 40px; margin-bottom: 10px; }
-  #dropzone .t1 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
-  #dropzone .t2 { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --space-3xl: 96px;
 
-  .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 9px 18px; border-radius: 10px; font-size: 13px;
-    border: 1px solid var(--border); background: var(--card-2); color: var(--text); cursor: pointer; transition: .2s;
-  }
-  .btn:hover { border-color: var(--cyan); color: var(--cyan); }
-  .btn.primary { background: var(--purple); border-color: var(--purple); color: #fff; }
-  .btn.primary:hover { background: #9333ea; color: #fff; }
-  .btn.gold { background: var(--gold); border-color: var(--gold); color: #0a0a0f; font-weight: 600; }
-  .btn.gold:hover { background: #d97706; color: #0a0a0f; }
-  .btn.green { background: var(--green); border-color: var(--green); color: #052e22; font-weight: 600; }
-  .btn.green:hover { background: #10b981; color: #052e22; }
-  .btn:disabled { opacity: .4; cursor: not-allowed; }
-  .btn.sm { padding: 6px 12px; font-size: 12px; }
-  input[type=file] { display: none; }
+  --text-xs: 11px;
+  --text-s: 12px;
+  --text-m: 14px;
+  --text-l: 16px;
+  --text-display-s: 22px;
+  --text-display: 34px;
+  --text-display-l: 52px;
 
-  #panel { display: none; margin-top: 18px; }
-  .card {
-    border: 1px solid var(--border); border-radius: 14px; background: var(--card);
-    padding: 16px; margin-bottom: 14px;
-  }
-  .card h3 { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 12px; letter-spacing: .5px; }
+  --dur-short: 120ms;
+  --dur-med: 220ms;
+  --dur-long: 600ms;
+  --ease-out: cubic-bezier(0.2, 0.6, 0.2, 1);
 
-  /* 播放器 */
-  .fname { font-size: 14px; font-weight: 600; margin-bottom: 12px; word-break: break-all; }
-  .pcontrols { display: flex; align-items: center; gap: 12px; }
-  .playbtn {
-    width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
-    border: none; background: linear-gradient(135deg, var(--cyan), var(--purple));
-    color: #0a0a0f; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 0 16px rgba(34,211,238,.25);
-  }
-  .times { flex: 1; min-width: 0; }
-  .time-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 5px; font-family: ui-monospace, monospace; }
-  input[type=range].seek {
-    width: 100%; -webkit-appearance: none; height: 6px; border-radius: 3px; outline: none;
-    background: #262630; cursor: pointer;
-  }
-  input[type=range].seek::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
-    background: var(--cyan); box-shadow: 0 0 8px rgba(34,211,238,.6);
-  }
-  /* 时段标记条 */
-  .marks { position: relative; height: 5px; border-radius: 3px; background: #262630; margin-top: 8px; overflow: hidden; }
-  .marks .mk { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, rgba(168,85,247,.55), rgba(34,211,238,.55)); border-radius: 2px; }
-  .surround-badge {
-    display: none; font-size: 11px; padding: 3px 10px; border-radius: 20px;
-    background: rgba(168,85,247,.15); border: 1px solid rgba(168,85,247,.4); color: var(--purple);
-    white-space: nowrap;
-  }
-  .surround-badge.on { display: inline-block; animation: pulse 1s infinite alternate; }
-  @keyframes pulse { from { box-shadow: 0 0 4px rgba(168,85,247,.3); } to { box-shadow: 0 0 14px rgba(168,85,247,.6); } }
+  --z-base: 1;
+  --z-sticky: 200;
+  --z-toast: 500;
 
-  /* 方式选择 */
-  .modes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
-  .mode {
-    border: 1px solid var(--border); border-radius: 10px; background: var(--card-2);
-    padding: 11px 8px; text-align: center; cursor: pointer; transition: .2s;
-  }
-  .mode .mi { font-size: 20px; display: block; margin-bottom: 5px; }
-  .mode .mn { font-size: 12px; color: var(--muted); }
-  .mode:hover { border-color: rgba(34,211,238,.4); }
-  .mode.active { border-color: var(--cyan); background: rgba(34,211,238,.08); box-shadow: 0 0 12px rgba(34,211,238,.14); }
-  .mode.active .mn { color: var(--cyan); font-weight: 600; }
+  --measure: 1120px;
+}
 
-  .sliders { display: flex; flex-wrap: wrap; gap: 22px; margin-top: 14px; }
-  .slider-item { flex: 1; min-width: 200px; }
-  .slider-item label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 7px; }
-  .slider-item label b { color: var(--cyan); font-family: ui-monospace, monospace; }
-  input[type=range].rng {
-    width: 100%; -webkit-appearance: none; height: 4px; border-radius: 2px; outline: none;
-    background: #262630;
-  }
-  input[type=range].rng::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
-    background: var(--purple); cursor: pointer; box-shadow: 0 0 8px rgba(168,85,247,.6);
-  }
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
-  /* 时段列表 */
-  .seg-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-  .seg-row input {
-    width: 92px; padding: 7px 10px; border-radius: 8px; font-size: 13px; text-align: center;
-    background: var(--card-2); border: 1px solid var(--border); color: var(--text); outline: none;
-    font-family: ui-monospace, monospace;
-  }
-  .seg-row input:focus { border-color: var(--purple); }
-  .seg-row .tilde { color: var(--muted); }
-  .seg-row .setcur { font-size: 11px; padding: 6px 8px; }
-  .seg-row .sdel {
-    border: none; background: none; color: #555; font-size: 15px; cursor: pointer; padding: 4px 8px; border-radius: 6px;
-  }
-  .seg-row .sdel:hover { color: #f87171; background: rgba(239,68,68,.1); }
-  .seg-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-  .empty-seg { font-size: 12px; color: #555; padding: 6px 0 2px; }
-  .segerr { display: none; font-size: 12px; color: #f87171; margin-top: 8px; }
+html, body { overflow-x: clip; background: var(--color-paper); }
 
-  .export-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-  #progress { display: none; margin-top: 14px; }
-  .pbar-box { height: 6px; border-radius: 3px; background: #2a2a35; overflow: hidden; }
-  .pbar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--purple)); transition: width .2s; }
-  .ptext { font-size: 12px; color: var(--muted); margin-top: 7px; }
+body {
+  font-family: var(--font-body);
+  color: var(--color-ink);
+  font-size: var(--text-m);
+  line-height: 1.6;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
 
-  .hint { font-size: 12px; color: #555; line-height: 1.8; margin-top: 16px; }
-  .hint b { color: var(--cyan); }
-  footer { text-align: center; font-size: 12px; color: #444; padding: 16px; }
-  #toast {
-    position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px);
-    background: var(--card-2); border: 1px solid var(--cyan); color: var(--text);
-    padding: 10px 20px; border-radius: 10px; font-size: 13px;
-    box-shadow: 0 0 20px rgba(34,211,238,.3); transition: transform .3s; z-index: 99; pointer-events: none;
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+::selection { background: var(--color-accent-2); color: var(--color-ink); }
+html { scrollbar-color: var(--color-rule-2) var(--color-paper); }
+body { caret-color: var(--color-accent); }
+
+/* ---------- chrome ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) 0;
+  background: var(--color-paper);
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+}
+.topbar-in {
+  width: 100%;
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 0 clamp(var(--space-md), 4vw, var(--space-xl));
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+.topbar a {
+  color: var(--color-muted);
+  text-decoration: none;
+  font-size: var(--text-s);
+  font-weight: 500;
+  padding: var(--space-3xs) 0;
+  border-bottom: 1px solid transparent;
+  transition: color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+.topbar a:hover { color: var(--color-ink); border-bottom-color: var(--color-accent); }
+.topbar a:active { color: var(--color-accent); }
+.topbar .pagename {
+  font-size: var(--text-s);
+  font-weight: 500;
+  color: var(--color-ink);
+}
+.topbar .note {
+  margin-left: auto;
+  font-size: var(--text-s);
+  color: var(--color-muted);
+}
+
+/* ---------- page ---------- */
+main {
+  width: 100%;
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: clamp(var(--space-lg), 5vw, var(--space-2xl)) clamp(var(--space-md), 4vw, var(--space-xl)) var(--space-2xl);
+  flex: 1;
+}
+
+.head { margin-bottom: clamp(var(--space-lg), 3vw, var(--space-xl)); }
+h1 {
+  font-weight: var(--display-weight);
+  font-stretch: var(--display-stretch);
+  letter-spacing: var(--tracking-display);
+  line-height: 1.04;
+  font-size: clamp(28px, 4.4vw, var(--text-display-l));
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  min-width: 0;
+  max-width: 18ch;
+}
+.lede {
+  margin-top: var(--space-sm);
+  font-size: var(--text-l);
+  color: var(--color-ink-2);
+  max-width: 44ch;
+}
+.subnote {
+  margin-top: var(--space-2xs);
+  font-size: var(--text-s);
+  color: var(--color-muted);
+  max-width: 52ch;
+}
+
+/* ---------- drop ---------- */
+.drop {
+  background: var(--color-paper-2);
+  border: var(--rule-hair) dashed var(--color-rule-2);
+  padding: clamp(var(--space-lg), 5vw, var(--space-2xl)) var(--space-lg);
+  text-align: center;
+  cursor: pointer;
+  transition: background-color var(--dur-med) var(--ease-out), border-color var(--dur-med) var(--ease-out);
+}
+.drop:hover,
+.drop.drag { background: var(--color-paper-3); border-color: var(--color-accent); }
+.drop-line {
+  font-size: var(--text-l);
+  font-weight: 500;
+  color: var(--color-ink);
+}
+.drop-note {
+  margin-top: var(--space-2xs);
+  margin-bottom: var(--space-md);
+  font-size: var(--text-s);
+  color: var(--color-muted);
+}
+.has-file .drop {
+  padding: var(--space-md) var(--space-lg);
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+.has-file .drop-note { margin: 0; }
+.has-file .drop-line { font-size: var(--text-m); }
+.has-file .drop .btn { margin-left: auto; }
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
+  border: var(--rule-hair) solid transparent;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-s);
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
+}
+.btn:active { background: var(--color-paper-3); }
+.btn--primary { background: var(--color-accent); color: var(--color-accent-ink); }
+.btn--primary:hover { background: var(--color-ink); }
+.btn--primary:active { background: var(--color-accent-2); color: var(--color-accent-ink); }
+.btn--secondary { border-color: var(--color-rule-2); }
+.btn--secondary:hover { background: var(--color-paper-2); border-color: var(--color-muted); }
+.btn--ghost { border-color: var(--color-rule); color: var(--color-ink-2); }
+.btn--ghost:hover { border-color: var(--color-rule-2); background: var(--color-paper-2); color: var(--color-ink); }
+.btn.sm { padding: var(--space-2xs) var(--space-sm); font-size: var(--text-xs); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+input[type=file] { display: none; }
+
+/* ---------- panel ---------- */
+#panel { display: none; }
+
+.block { margin-top: var(--space-lg); }
+
+.label {
+  font-size: var(--text-s);
+  font-weight: 500;
+  color: var(--color-muted);
+  margin-bottom: var(--space-sm);
+}
+
+.well {
+  background: var(--color-paper-2);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+}
+
+/* player */
+.player-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+.fname {
+  font-size: var(--text-l);
+  font-weight: 500;
+  color: var(--color-ink);
+  word-break: break-all;
+  min-width: 0;
+}
+.badge {
+  display: none;
+  font-size: var(--text-s);
+  font-weight: 500;
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+.badge.on { display: inline-block; }
+
+.player-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+}
+.play {
+  min-width: 64px;
+  height: 48px;
+  padding: 0 var(--space-md);
+  flex-shrink: 0;
+  border: var(--rule-hair) solid var(--color-rule-2);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-3);
+  color: var(--color-ink);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+.play:hover { border-color: var(--color-ink); background: var(--color-paper); }
+.play:active { background: var(--color-paper-2); border-color: var(--color-accent); }
+
+.times { flex: 1; min-width: 0; }
+.readout {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xs);
+}
+.fig {
+  font-weight: var(--display-weight);
+  font-stretch: var(--display-stretch);
+  letter-spacing: -0.03em;
+  font-size: var(--text-display);
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+}
+.fig--dim { color: var(--color-muted); font-size: var(--text-display-s); }
+.slash { color: var(--color-rule-2); font-size: var(--text-display-s); }
+
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2px;
+  background: var(--color-rule-2);
+  border-radius: 0;
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: 0;
+  background: var(--color-ink);
+  transition: background-color var(--dur-short) var(--ease-out);
+}
+input[type=range]:hover::-webkit-slider-thumb { background: var(--color-accent); }
+input[type=range]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: 0;
+  background: var(--color-ink);
+}
+input[type=range]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 4px; }
+
+.marks {
+  position: relative;
+  height: 2px;
+  background: var(--color-rule);
+  margin-top: var(--space-sm);
+}
+.marks .mk {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--color-accent-2);
+}
+
+/* modes */
+.modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: var(--space-2xs);
+}
+.mode {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-2);
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-s);
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+  transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
+}
+.mode svg { display: block; opacity: 0.7; }
+.mode:hover { border-color: var(--color-rule-2); color: var(--color-ink-2); }
+.mode:active { background: var(--color-paper-3); }
+.mode.active {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-accent-ink);
+}
+.mode.active svg { opacity: 1; color: var(--color-accent-ink); }
+
+.sliders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: var(--space-lg);
+  margin-top: var(--space-lg);
+}
+.slider { min-width: 0; }
+.slider label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  font-size: var(--text-s);
+  color: var(--color-muted);
+  margin-bottom: var(--space-sm);
+}
+.slider label b {
+  font-weight: var(--display-weight);
+  font-stretch: var(--display-stretch);
+  font-size: var(--text-display-s);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+}
+
+/* segments */
+.note {
+  font-size: var(--text-s);
+  color: var(--color-muted);
+  margin-bottom: var(--space-sm);
+}
+.seg-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  padding: var(--space-xs) 0;
+  border-top: var(--rule-hair) solid var(--color-rule);
+}
+.seg-row:last-child { border-bottom: var(--rule-hair) solid var(--color-rule); }
+.seg-idx {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  width: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.seg-row input {
+  width: 84px;
+  padding: var(--space-2xs) var(--space-xs);
+  border: var(--rule-hair) solid var(--color-rule-2);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-m);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.seg-row .tilde { color: var(--color-rule-2); }
+.seg-row .sdel {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--color-muted);
+  font-size: var(--text-m);
+  cursor: pointer;
+  padding: var(--space-2xs) var(--space-xs);
+  transition: color var(--dur-short) var(--ease-out);
+}
+.seg-row .sdel:hover { color: var(--color-ink); }
+.seg-actions {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  margin-top: var(--space-md);
+}
+.empty-seg {
+  font-size: var(--text-s);
+  color: var(--color-muted);
+  padding: var(--space-sm) 0;
+}
+.segerr {
+  display: none;
+  font-size: var(--text-s);
+  color: var(--color-accent);
+  margin-top: var(--space-xs);
+}
+
+/* export */
+.export-row {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  align-items: center;
+}
+#progress { display: none; margin-top: var(--space-md); }
+.meter {
+  height: 2px;
+  background: var(--color-rule-2);
+  overflow: hidden;
+}
+#pbarFill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--color-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-med) var(--ease-out);
+}
+.ptext {
+  font-size: var(--text-s);
+  color: var(--color-muted);
+  margin-top: var(--space-xs);
+}
+
+.hint {
+  font-size: var(--text-s);
+  color: var(--color-muted);
+  line-height: 1.8;
+  margin-top: var(--space-xl);
+  padding-top: var(--space-md);
+  border-top: var(--rule-hair) solid var(--color-rule);
+  max-width: 62ch;
+}
+.hint b { color: var(--color-ink-2); font-weight: 500; }
+
+footer {
+  border-top: var(--rule-hair) solid var(--color-rule);
+  padding: var(--space-md) clamp(var(--space-md), 4vw, var(--space-xl));
+  font-size: var(--text-s);
+  color: var(--color-muted);
+}
+footer .wrap-foot {
+  max-width: var(--measure);
+  margin: 0 auto;
+}
+
+#toast {
+  position: fixed;
+  top: var(--space-md);
+  left: 50%;
+  transform: translateX(-50%) translateY(-160%);
+  background: var(--color-paper-3);
+  border: var(--rule-hair) solid var(--color-rule-2);
+  color: var(--color-ink);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-card);
+  font-size: var(--text-s);
+  max-width: calc(100% - var(--space-lg));
+  transition: transform var(--dur-med) var(--ease-out);
+  z-index: var(--z-toast);
+  pointer-events: none;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 720px) {
+  .player-main { gap: var(--space-xs); margin-top: var(--space-md); }
+  .fig { font-size: 24px; }
+  .fig--dim, .slash { font-size: var(--text-l); }
+  .play { min-width: 56px; height: 40px; padding: 0 var(--space-sm); }
+  .modes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .modes .mode:last-child { grid-column: 1 / -1; }
+  .sliders { grid-template-columns: minmax(0, 1fr); gap: var(--space-md); }
+  .slider label { align-items: center; margin-bottom: var(--space-xs); }
+  .slider label b { font-size: var(--text-display-s); white-space: nowrap; }
+  .topbar .note { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
-  #toast.show { transform: translateX(-50%) translateY(0); }
+}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <nav class="crumb">
-    <a href="/">🏠 首页</a>
-    <span class="sep">/</span>
-    <span class="cur">环绕音处理</span>
-  </nav>
 
-  <h1>🎧 MP3 环绕音处理</h1>
-  <p class="sub">指定时间段，让声音在耳机中 360° 环绕移动 · 纯本地处理，文件不上传 · 建议佩戴耳机</p>
+<header class="topbar">
+  <div class="topbar-in">
+    <a href="/">首页</a>
+    <span class="pagename">MP3 环绕音处理</span>
+    <span class="note">本地处理</span>
+  </div>
+</header>
 
-  <div id="dropzone">
-    <div class="icon">🎵</div>
-    <div class="t1">将音频文件拖到此处</div>
-    <div class="t2">支持 mp3、wav、m4a、ogg、flac 等浏览器可解码的音频</div>
-    <button class="btn primary" id="pickBtn">📁 选择音频文件</button>
+<main>
+  <section class="head">
+    <h1>MP3 环绕音处理</h1>
+    <p class="lede">指定时间段，让声音在耳机中 360° 环绕移动。</p>
+    <p class="subnote">建议佩戴耳机。文件不上传，刷新后不保留。</p>
+  </section>
+
+  <div id="dropzone" class="drop">
+    <div class="drop-line">将音频文件拖到此处</div>
+    <div class="drop-note">支持 mp3、wav、m4a、ogg、flac 等浏览器可解码的音频</div>
+    <button class="btn btn--primary" id="pickBtn">选择音频文件</button>
   </div>
   <input type="file" id="fileInput" accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac,.aac" />
 
   <div id="panel">
-    <!-- 试听播放器 -->
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-        <div class="fname" id="fName" style="margin:0;">-</div>
-        <span class="surround-badge" id="sBadge">🌀 环绕中</span>
-      </div>
-      <div class="pcontrols" style="margin-top:12px;">
-        <button class="playbtn" id="playBtn">▶</button>
-        <div class="times">
-          <input type="range" class="seek" id="seek" min="0" max="1000" value="0" step="1" />
-          <div class="marks" id="marks"></div>
-          <div class="time-row"><span id="curT">0:00</span><span id="durT">0:00</span></div>
+    <section class="block">
+      <div class="well">
+        <div class="player-head">
+          <div class="fname" id="fName">未加载文件</div>
+          <span class="badge" id="sBadge">环绕中</span>
+        </div>
+        <div class="player-main">
+          <button class="play" id="playBtn" aria-label="播放或暂停">播放</button>
+          <div class="times">
+            <div class="readout">
+              <span class="fig" id="curT">0:00</span>
+              <span class="slash">/</span>
+              <span class="fig fig--dim" id="durT">0:00</span>
+            </div>
+            <input type="range" class="seek" id="seek" min="0" max="1000" value="0" step="1" aria-label="播放进度" />
+            <div class="marks" id="marks"></div>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- 环绕方式 -->
-    <div class="card">
-      <h3>🌀 环绕方式</h3>
+    <section class="block">
+      <h2 class="label">环绕方式</h2>
       <div class="modes" id="modes">
-        <div class="mode active" data-mode="circle"><span class="mi">🔄</span><span class="mn">360° 环绕</span></div>
-        <div class="mode" data-mode="swing"><span class="mi">↔️</span><span class="mn">左右摇摆</span></div>
-        <div class="mode" data-mode="forward"><span class="mi">↕️</span><span class="mn">前后穿梭</span></div>
-        <div class="mode" data-mode="figure8"><span class="mi">∞</span><span class="mn">8 字环绕</span></div>
-        <div class="mode" data-mode="vertical"><span class="mi">⤴️</span><span class="mn">垂直环绕</span></div>
+        <button class="mode active" data-mode="circle" type="button">
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1"><circle cx="11" cy="11" r="7" stroke-dasharray="2 2"/><circle cx="11" cy="4" r="2" fill="currentColor" stroke="none"/></svg>
+          <span>360° 环绕</span>
+        </button>
+        <button class="mode" data-mode="swing" type="button">
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1"><path d="M4 11h14" stroke-dasharray="2 2"/><circle cx="11" cy="11" r="2" fill="currentColor" stroke="none"/></svg>
+          <span>左右摇摆</span>
+        </button>
+        <button class="mode" data-mode="forward" type="button">
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1"><path d="M11 4v14" stroke-dasharray="2 2"/><circle cx="11" cy="11" r="2" fill="currentColor" stroke="none"/></svg>
+          <span>前后穿梭</span>
+        </button>
+        <button class="mode" data-mode="figure8" type="button">
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1"><path d="M8 11a3.5 3.5 0 1 0 0-.1M14 11a3.5 3.5 0 1 0 0-.1" stroke-dasharray="2 2"/><circle cx="11" cy="11" r="2" fill="currentColor" stroke="none"/></svg>
+          <span>8 字环绕</span>
+        </button>
+        <button class="mode" data-mode="vertical" type="button">
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1"><path d="M11 11V4" stroke-dasharray="2 2"/><circle cx="11" cy="11" r="2" fill="currentColor" stroke="none"/><circle cx="11" cy="4" r="1.5" stroke="none" fill="currentColor" opacity=".45"/></svg>
+          <span>垂直环绕</span>
+        </button>
       </div>
       <div class="sliders">
-        <div class="slider-item">
-          <label>环绕周期（转一圈耗时）<b id="periodVal">3.0 s</b></label>
+        <div class="slider">
+          <label for="period">环绕周期（转一圈耗时）<b id="periodVal">3.0 s</b></label>
           <input type="range" class="rng" id="period" min="0.8" max="10" step="0.1" value="3" />
         </div>
-        <div class="slider-item">
-          <label>环绕半径（空间感强度）<b id="radiusVal">1.2</b></label>
+        <div class="slider">
+          <label for="radius">环绕半径（空间感强度）<b id="radiusVal">1.2</b></label>
           <input type="range" class="rng" id="radius" min="0.4" max="2.5" step="0.1" value="1.2" />
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- 时段设置 -->
-    <div class="card">
-      <h3>⏱️ 环绕时间段（格式 分:秒，如 0:30）</h3>
+    <section class="block">
+      <h2 class="label">环绕时间段</h2>
+      <p class="note">格式 分:秒，例如 0:30</p>
       <div id="segList"></div>
       <div class="segerr" id="segErr"></div>
       <div class="seg-actions">
-        <button class="btn sm" id="addSeg">➕ 添加时间段</button>
-        <button class="btn sm" id="wholeSeg">↔️ 应用到整首</button>
+        <button class="btn btn--ghost sm" id="addSeg">添加时间段</button>
+        <button class="btn btn--ghost sm" id="wholeSeg">应用到整首</button>
       </div>
-    </div>
+    </section>
 
-    <!-- 导出 -->
-    <div class="card">
-      <h3>💾 导出处理后的音频</h3>
+    <section class="block">
+      <h2 class="label">导出</h2>
       <div class="export-row">
-        <button class="btn gold" id="exportWav">导出 WAV（无损）</button>
-        <button class="btn primary" id="exportMp3">导出 MP3（192kbps）</button>
+        <button class="btn btn--primary" id="exportWav">导出 WAV（无损）</button>
+        <button class="btn btn--secondary" id="exportMp3">导出 MP3（192 kbps）</button>
       </div>
       <div id="progress">
-        <div class="pbar-box"><div class="pbar-fill" id="pbarFill"></div></div>
-        <div class="ptext" id="ptext">渲染中…</div>
+        <div class="meter"><span id="pbarFill"></span></div>
+        <p class="ptext" id="ptext">渲染中</p>
       </div>
-    </div>
+    </section>
 
-    <div class="hint">
-      <b>说明：</b>基于 Web Audio 的 HRTF 空间音频，声音在 3D 空间中围绕头部运动，<b>请戴耳机</b>体验。只有标记的时间段会产生环绕移动，其余部分保持正常声像。多时间段之间请不要重叠。WAV 无损无需联网；MP3 需联网加载编码库。
-    </div>
+    <p class="hint">
+      <b>说明：</b>基于 Web Audio 的 HRTF 空间音频，声音在 3D 空间中围绕头部运动，请戴耳机体验。只有标记的时间段会产生环绕移动，其余部分保持正常声像。多时间段之间不要重叠。WAV 无需联网；MP3 需联网加载编码库。
+    </p>
   </div>
-</div>
+</main>
 
-<footer>MP3 环绕音处理 · 纯本地处理 · 刷新后不保留任何文件</footer>
+<footer><div class="wrap-foot">纯本地运行，无需上传</div></footer>
 <div id="toast"></div>
 
 <script>
@@ -371,6 +810,7 @@
         $('fName').textContent = file.name;
         $('durT').textContent = fmtTime(buf.duration);
         $('panel').style.display = 'block';
+        document.body.classList.add('has-file');
         if (!segments.length) addSegment(0, Math.min(10, buf.duration));
         renderSegments();
         renderMarks();
@@ -378,7 +818,7 @@
       }, function () {
         ctx0.close();
         toast('无法解码该音频，请更换文件');
-        $('fName').textContent = '-';
+        $('fName').textContent = '解码失败';
       });
     };
     fr.readAsArrayBuffer(file);
@@ -423,7 +863,7 @@
       liveSrc.start(0, offset);
       startedAt = actx.currentTime;
       isPlaying = true;
-      $('playBtn').textContent = '⏸';
+      $('playBtn').textContent = '暂停';
       liveSrc.onended = function () {
         if (!isPlaying) return;
         stop(true);
@@ -446,7 +886,7 @@
     cancelAnimationFrame(rafId);
     if (liveSrc) { try { liveSrc.onended = null; liveSrc.stop(); } catch (e) {} liveSrc.disconnect(); liveSrc = null; }
     if (livePanner) { livePanner.disconnect(); livePanner = null; }
-    $('playBtn').textContent = '▶';
+    $('playBtn').textContent = '播放';
     $('sBadge').classList.remove('on');
     if (!finished) updateSeekUI();
   }
@@ -598,7 +1038,7 @@
   function encodeMp3P(buf, kbps, onProgress) {
     return new Promise(function (resolve, reject) {
       try {
-        var target = 44100, best = Infinity;
+        var target = 44100;
         MP3_RATES.forEach(function (r) { if (Math.abs(r - buf.sampleRate) < Math.abs(target - buf.sampleRate)) target = r; });
         var left = toInt16(resample(buf.getChannelData(0), buf.sampleRate, target));
         var right = buf.numberOfChannels > 1 ? toInt16(resample(buf.getChannelData(1), buf.sampleRate, target)) : null;
@@ -655,34 +1095,39 @@
     setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 3000);
   }
 
+  // 进度条用 transform 推进，不动布局
+  function setBar(pct) {
+    $('pbarFill').style.transform = 'scaleX(' + (pct / 100) + ')';
+  }
+
   function doExport(asMp3) {
     if (!audioBuffer || exporting) return;
     exporting = true;
     var btns = [$('exportWav'), $('exportMp3')];
     btns.forEach(function (b) { b.disabled = true; });
     $('progress').style.display = 'block';
-    $('pbarFill').style.width = '8%';
-    $('ptext').textContent = '正在离线渲染环绕音轨…';
+    setBar(8);
+    $('ptext').textContent = '正在离线渲染环绕音轨';
 
     Promise.resolve()
       .then(buildRenderContext)
       .then(function (rendered) {
-        $('pbarFill').style.width = '70%';
+        setBar(70);
         if (!asMp3) {
-          $('ptext').textContent = '正在生成 WAV…';
-          $('pbarFill').style.width = '92%';
+          $('ptext').textContent = '正在生成 WAV';
+          setBar(92);
           return encodeWav(rendered);
         }
-        $('ptext').textContent = '正在编码 MP3…';
+        $('ptext').textContent = '正在编码 MP3';
         return ensureLame().then(function () {
           return encodeMp3P(rendered, 192, function (p) {
-            $('pbarFill').style.width = Math.round(70 + p * 25) + '%';
+            setBar(Math.round(70 + p * 25));
           });
         });
       })
       .then(function (blob) {
-        $('pbarFill').style.width = '100%';
-        $('ptext').textContent = '完成，开始下载…';
+        setBar(100);
+        $('ptext').textContent = '完成，开始下载';
         var out = fileName + '_surround.' + (asMp3 ? 'mp3' : 'wav');
         download(blob, out);
         toast('已导出 ' + out);
@@ -711,18 +1156,18 @@
     var box = $('segList');
     box.innerHTML = '';
     if (!segments.length) {
-      box.innerHTML = '<div class="empty-seg">尚未添加时间段（可先试听，再用「设为当前」快速打点）</div>';
+      box.innerHTML = '<div class="empty-seg">尚未添加时间段（可先试听，再按钮「起点设为当前」打点）</div>';
       return;
     }
     segments.forEach(function (g, i) {
       var row = document.createElement('div');
       row.className = 'seg-row';
       row.innerHTML =
-        '<span style="font-size:11px;color:#666;width:16px;">' + (i + 1) + '</span>' +
-        '<input class="sin" placeholder="0:00" /> <span class="tilde">~</span> <input class="ein" placeholder="0:10" />' +
-        '<button class="btn sm setcur sinbtn">起点设为当前</button>' +
-        '<button class="btn sm setcur einbtn">终点设为当前</button>' +
-        '<button class="sdel" title="删除">✕</button>';
+        '<span class="seg-idx">' + (i + 1) + '</span>' +
+        '<input class="sin" placeholder="0:00" aria-label="开始时间" /> <span class="tilde">至</span> <input class="ein" placeholder="0:10" aria-label="结束时间" />' +
+        '<button class="btn btn--ghost sm setcur sinbtn" type="button">起点设为当前</button>' +
+        '<button class="btn btn--ghost sm setcur einbtn" type="button">终点设为当前</button>' +
+        '<button class="sdel" type="button" title="删除" aria-label="删除该时间段">✕</button>';
       var sin = row.querySelector('.sin'), ein = row.querySelector('.ein');
       sin.value = g.startInput; ein.value = g.endInput;
       sin.addEventListener('input', function () { g.startInput = sin.value; renderMarksLive(); });
