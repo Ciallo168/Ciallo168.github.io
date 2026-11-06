@@ -128,8 +128,18 @@ body { caret-color: var(--color-accent); }
   font-weight: 500;
   color: var(--color-ink);
 }
-.topbar .note {
+.topbar .lang {
   margin-left: auto;
+  font-size: var(--text-s);
+  font-weight: 500;
+  color: var(--color-muted);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+.topbar .lang:hover { color: var(--color-ink); border-bottom-color: var(--color-accent); }
+.topbar .note {
+  margin-left: 0;
   font-size: var(--text-s);
   color: var(--color-muted);
 }
@@ -159,13 +169,15 @@ h1 {
   margin-top: var(--space-sm);
   font-size: var(--text-l);
   color: var(--color-ink-2);
-  max-width: 44ch;
+  max-width: 52ch;
+  text-wrap: pretty;
 }
 .subnote {
   margin-top: var(--space-2xs);
   font-size: var(--text-s);
   color: var(--color-muted);
-  max-width: 52ch;
+  max-width: 480px;
+  text-wrap: pretty;
 }
 
 /* ---------- drop ---------- */
@@ -173,6 +185,11 @@ h1 {
   background: var(--color-paper-2);
   border: var(--rule-hair) dashed var(--color-rule-2);
   padding: clamp(var(--space-lg), 5vw, var(--space-2xl)) var(--space-lg);
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   cursor: pointer;
   transition: background-color var(--dur-med) var(--ease-out), border-color var(--dur-med) var(--ease-out);
@@ -191,9 +208,10 @@ h1 {
   color: var(--color-muted);
 }
 .has-file .drop {
+  min-height: 0;
   padding: var(--space-md) var(--space-lg);
   text-align: left;
-  display: flex;
+  flex-direction: row;
   align-items: center;
   gap: var(--space-md);
   flex-wrap: wrap;
@@ -236,6 +254,7 @@ input[type=file] { display: none; }
 #panel { display: none; }
 
 .block { margin-top: var(--space-lg); }
+.block--wide { margin-top: var(--space-xl); }
 
 .label {
   font-size: var(--text-s);
@@ -429,9 +448,9 @@ input[type=range]:focus-visible { outline: 2px solid var(--color-focus); outline
 .seg-row {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   flex-wrap: wrap;
-  padding: var(--space-xs) 0;
+  padding: var(--space-sm) 0;
   border-top: var(--rule-hair) solid var(--color-rule);
 }
 .seg-row:last-child { border-bottom: var(--rule-hair) solid var(--color-rule); }
@@ -457,11 +476,12 @@ input[type=range]:focus-visible { outline: 2px solid var(--color-focus); outline
 .seg-row .sdel {
   margin-left: auto;
   border: none;
+  border-left: var(--rule-hair) solid var(--color-rule);
   background: none;
   color: var(--color-muted);
   font-size: var(--text-m);
   cursor: pointer;
-  padding: var(--space-2xs) var(--space-xs);
+  padding: var(--space-2xs) var(--space-xs) var(--space-2xs) var(--space-sm);
   transition: color var(--dur-short) var(--ease-out);
 }
 .seg-row .sdel:hover { color: var(--color-ink); }
@@ -579,6 +599,7 @@ footer .wrap-foot {
   <div class="topbar-in">
     <a href="/">首页</a>
     <span class="pagename">MP3 环绕音处理</span>
+    <a class="lang" href="/surround/en/" hreflang="en" lang="en">EN</a>
     <span class="note">本地处理</span>
   </div>
 </header>
@@ -655,7 +676,7 @@ footer .wrap-foot {
       </div>
     </section>
 
-    <section class="block">
+    <section class="block block--wide">
       <h2 class="label">环绕时间段</h2>
       <p class="note">格式 分:秒，例如 0:30</p>
       <div id="segList"></div>
@@ -666,7 +687,7 @@ footer .wrap-foot {
       </div>
     </section>
 
-    <section class="block">
+    <section class="block block--wide">
       <h2 class="label">导出</h2>
       <div class="export-row">
         <button class="btn btn--primary" id="exportWav">导出 WAV（无损）</button>
