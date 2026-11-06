@@ -128,8 +128,18 @@ body { caret-color: var(--color-accent); }
   font-weight: 500;
   color: var(--color-ink);
 }
-.topbar .lang {
+.topbar .switch {
   margin-left: auto;
+  font-size: var(--text-s);
+  font-weight: 500;
+  color: var(--color-ink);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+.topbar .switch:hover { border-bottom-color: var(--color-accent); }
+.topbar .lang {
+  margin-left: var(--space-md);
   font-size: var(--text-s);
   font-weight: 500;
   color: var(--color-muted);
@@ -601,6 +611,7 @@ footer .wrap-foot {
   <div class="topbar-in">
     <a href="/">首页</a>
     <span class="pagename">MP3 环绕音处理</span>
+    <a class="switch" href="paper/index.html">白纸</a>
     <a class="lang" href="/surround/en/" hreflang="en" lang="en">EN</a>
     <span class="note">本地处理</span>
   </div>
