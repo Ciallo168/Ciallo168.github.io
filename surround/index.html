@@ -565,11 +565,13 @@ footer .wrap-foot {
   border-radius: var(--radius-card);
   font-size: var(--text-s);
   max-width: calc(100% - var(--space-lg));
-  transition: transform var(--dur-med) var(--ease-out);
+  opacity: 0;
+  visibility: hidden;
+  transition: transform var(--dur-med) var(--ease-out), opacity var(--dur-med) var(--ease-out), visibility var(--dur-med);
   z-index: var(--z-toast);
   pointer-events: none;
 }
-#toast.show { transform: translateX(-50%) translateY(0); }
+#toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
 
 @media (max-width: 720px) {
   .player-main { gap: var(--space-xs); margin-top: var(--space-md); }

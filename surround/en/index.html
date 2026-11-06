@@ -128,8 +128,18 @@ body { caret-color: var(--color-accent); }
   font-weight: 500;
   color: var(--color-ink);
 }
-.topbar .lang {
+.topbar .switch {
   margin-left: auto;
+  font-size: var(--text-s);
+  font-weight: 500;
+  color: var(--color-ink);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+.topbar .switch:hover { border-bottom-color: var(--color-accent); }
+.topbar .lang {
+  margin-left: var(--space-md);
   font-size: var(--text-s);
   font-weight: 500;
   color: var(--color-muted);
@@ -565,11 +575,13 @@ footer .wrap-foot {
   border-radius: var(--radius-card);
   font-size: var(--text-s);
   max-width: calc(100% - var(--space-lg));
-  transition: transform var(--dur-med) var(--ease-out);
+  opacity: 0;
+  visibility: hidden;
+  transition: transform var(--dur-med) var(--ease-out), opacity var(--dur-med) var(--ease-out), visibility var(--dur-med);
   z-index: var(--z-toast);
   pointer-events: none;
 }
-#toast.show { transform: translateX(-50%) translateY(0); }
+#toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
 
 @media (max-width: 720px) {
   .player-main { gap: var(--space-xs); margin-top: var(--space-md); }
@@ -599,6 +611,7 @@ footer .wrap-foot {
   <div class="topbar-in">
     <a href="/">Home</a>
     <span class="pagename">MP3 surround</span>
+    <a class="switch" href="paper/index.html">Paper</a>
     <a class="lang" href="/surround/" hreflang="zh-CN" lang="zh-CN">中文</a>
     <span class="note">On device</span>
   </div>
