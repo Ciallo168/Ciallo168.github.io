@@ -4,321 +4,627 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>图片文字识别 OCR</title>
+<meta name="description" content="在浏览器里从图片或 PDF 中提取文字、公式与表格，导出 docx、txt、md、xlsx。" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;600;700&family=IBM+Plex+Mono:wght@400&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
 <style>
-  :root {
-    --bg: #f5f5f5; --panel: #ffffff;
-    --border: #e3e3e3; --line: #c0c0c0; --input: #d6d6d6;
-    --green: #469456; --green-dark: #3d7f4b; --green-soft: #eef5ef;
-    --orange: #efab4e;
-    --text: #333333; --text-2: #666666; --muted: #7d7d7d;
-    --disabled: #cbcbcb;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; }
-  body {
-    font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", 微软雅黑, Arial, sans-serif;
-    background: var(--bg); color: var(--text); min-height: 100vh;
-  }
-  .layout { display: flex; min-height: 100vh; align-items: stretch; }
+/* Hallmark · redesign: full · scope: app · theme: Ink · colourway: paper · genre: editorial · v2.5 · lang: zh
+   nav: the name, its one line and a back link · footer: one line · job: process and export · surface: none */
+/* Hallmark · waive 22 · ink, ink-2 and ink-3 sit at zero chroma · the tesseract modes and the docx export print in plain black */
+:root {
+  --color-paper: oklch(99.5% 0.003 100);
+  --color-paper-2: oklch(97% 0.004 100);
+  --color-paper-3: oklch(94% 0.006 100);
+  --color-ink: oklch(16% 0 0);
+  --color-ink-2: oklch(28% 0 0);
+  --color-muted: oklch(44% 0 0);
+  --color-ink-3: oklch(34% 0 0);
+  --color-rule: oklch(89% 0.004 100);
+  --color-rule-2: oklch(93.5% 0.003 100);
+  --color-accent: oklch(50% 0.095 188);
+  --color-accent-ink: oklch(99.5% 0.003 100);
+  --color-accent-soft: oklch(93% 0.05 190);
+  --color-accent-soft-ink: oklch(27% 0.045 190);
+  --color-focus: oklch(50% 0.095 188);
 
-  /* ---------- 左侧导航（参考白描） ---------- */
-  .sidebar {
-    width: 210px; flex: 0 0 210px; background: var(--bg);
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column; padding: 26px 0 18px;
-    position: sticky; top: 0; height: 100vh;
+  --font-display: "Epilogue", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-display);
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+
+  --radius-card: 12px;
+  --radius-control: 10px;
+  --radius-pill: 999px;
+  --rule-hair: 1px;
+  --tracking-display: -0.04em;
+  --display-weight: 700;
+
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --space-3xl: 96px;
+
+  --text-xs: 12px;
+  --text-s: 13px;
+  --text-m: 16px;
+  --text-l: 17px;
+
+  --dur-micro: 120ms;
+  --dur-short: 200ms;
+  --ease-out: cubic-bezier(0.2, 0.6, 0.2, 1);
+
+  --z-sticky: 200;
+  --z-toast: 500;
+  --measure: 1180px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { overflow-x: clip; background: var(--color-paper); }
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-m);
+  line-height: 1.55;
+  color: var(--color-ink-2);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--color-accent-soft); color: var(--color-accent-soft-ink); }
+html { scrollbar-color: var(--color-rule) var(--color-paper); }
+body { caret-color: var(--color-ink); }
+
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+/* ---------- nav ---------- */
+.nav { border-bottom: var(--rule-hair) solid var(--color-rule); }
+.nav-in {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: var(--space-md) clamp(var(--space-md), 4vw, var(--space-xl));
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+}
+.brand { font-size: var(--text-m); font-weight: 700; letter-spacing: -0.02em; color: var(--color-ink); }
+.brand-sub { font-size: var(--text-xs); color: var(--color-muted); }
+.nav-links { margin-left: auto; }
+.nav-links a {
+  font-size: var(--text-s);
+  font-weight: 600;
+  color: var(--color-ink);
+  text-decoration: none;
+}
+.nav-links a:hover { text-decoration: underline; text-decoration-color: var(--color-accent); text-underline-offset: 4px; }
+
+/* ---------- layout ---------- */
+main { flex: 1; }
+.wrap {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 0 clamp(var(--space-md), 4vw, var(--space-xl));
+}
+
+/* ---------- hero ---------- */
+.hero {
+  padding: clamp(var(--space-xl), 6vw, var(--space-3xl)) 0 clamp(var(--space-xl), 4vw, var(--space-2xl));
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+}
+body:not(.has-file) .hero {
+  display: flex;
+  align-items: center;
+  min-height: calc(100vh - 100px);
+}
+body:not(.has-file) .hero-in { width: 100%; }
+body.has-file .hero { padding-bottom: var(--space-xl); }
+.hero-in {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: clamp(var(--space-lg), 6vw, var(--space-2xl));
+  align-items: start;
+}
+h1 {
+  font-weight: var(--display-weight);
+  font-size: clamp(30px, 3.6vw, 52px);
+  letter-spacing: var(--tracking-display);
+  line-height: 1.0;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  min-width: 0;
+  color: var(--color-ink);
+  max-width: 100%;
+}
+.lede {
+  margin-top: var(--space-md);
+  font-size: var(--text-l);
+  color: var(--color-ink-2);
+  max-width: 100%;
+  text-wrap: pretty;
+}
+.note {
+  margin-top: var(--space-xs);
+  font-size: var(--text-s);
+  color: var(--color-muted);
+  max-width: 100%;
+  text-wrap: pretty;
+}
+.pills { margin-top: var(--space-lg); display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2xs) var(--space-sm);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  background: transparent;
+  box-shadow: inset 0 0 0 var(--rule-hair) var(--color-rule);
+  color: var(--color-muted);
+}
+.tag--in { background: var(--color-accent-soft); color: var(--color-accent-soft-ink); box-shadow: none; }
+
+/* ---------- drop ---------- */
+.side { display: flex; flex-direction: column; gap: var(--space-xl); }
+.drop {
+  background: var(--color-paper-2);
+  border: var(--rule-hair) dashed var(--color-rule);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+  cursor: pointer;
+  transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+.drop:hover, .drop.drag { background: var(--color-paper-3); border-color: var(--color-muted); }
+.drop-k { font-size: var(--text-xs); color: var(--color-muted); margin-bottom: var(--space-sm); }
+.drop-line { font-size: var(--text-l); font-weight: 600; color: var(--color-ink); }
+.drop-note { margin: var(--space-2xs) 0 var(--space-md); font-size: var(--text-s); color: var(--color-muted); }
+.drop .btn { width: 100%; }
+body.has-file #dropzone {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  flex-wrap: wrap;
+  border-style: solid;
+  background: var(--color-paper);
+}
+body.has-file #dropzone .drop-k { margin: 0; }
+body.has-file #dropzone .drop-line,
+body.has-file #dropzone .drop-note { display: none; }
+body.has-file #dropzone .btn { width: auto; margin-left: auto; }
+input[type=file] { display: none; }
+
+/* ---------- modes ---------- */
+.modes-k { font-size: var(--text-xs); color: var(--color-muted); margin-bottom: var(--space-xs); }
+.ruled { border-top: var(--rule-hair) solid var(--color-ink); display: block; }
+.ruled > * { border-bottom: var(--rule-hair) solid var(--color-rule); }
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-sm) 0;
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-out);
+}
+.tab .mn { font-size: var(--text-m); font-weight: 600; color: var(--color-ink); }
+.tab .mdesc { flex: 1; min-width: 0; font-size: var(--text-s); color: var(--color-muted); }
+.tab .pill {
+  display: none;
+  align-items: center;
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-soft-ink);
+  white-space: nowrap;
+}
+.tab.active .pill { display: inline-flex; }
+.tab:hover .mn { text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--color-accent); }
+.tab:disabled { opacity: 0.45; cursor: not-allowed; }
+.tab:disabled .pill { display: none; }
+.tab:disabled .mdesc { color: var(--color-muted); }
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs) var(--space-md);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-control);
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-s);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
+}
+.btn:hover { border-color: var(--color-muted); }
+.btn:active { background: var(--color-paper-3); }
+.btn--primary { background: var(--color-ink); border-color: var(--color-ink); color: var(--color-paper); }
+.btn--primary:hover { background: var(--color-ink-2); border-color: var(--color-ink-2); }
+.btn--primary:active { background: var(--color-ink-3); }
+.btn.sm { padding: var(--space-2xs) var(--space-sm); font-size: var(--text-xs); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---------- sections ---------- */
+.sec { padding: clamp(var(--space-xl), 4vw, var(--space-2xl)) 0; border-bottom: var(--rule-hair) solid var(--color-rule); }
+.sec:last-of-type { border-bottom: none; }
+.sec-head {
+  font-size: var(--text-s);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+  padding-bottom: var(--space-sm);
+  border-bottom: var(--rule-hair) solid var(--color-ink);
+  margin-bottom: var(--space-lg);
+}
+
+#panel { display: none; }
+
+/* file row */
+.file-row { display: flex; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; }
+.k { font-size: var(--text-xs); color: var(--color-muted); flex: 0 0 56px; }
+.fname { flex: 1; min-width: 0; font-size: var(--text-m); font-weight: 600; color: var(--color-ink); word-break: break-all; }
+.measure { font-family: var(--font-outlier); font-variant-numeric: tabular-nums; font-size: var(--text-xs); color: var(--color-muted); }
+.fclear {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  padding: var(--space-2xs) 0;
+  transition: color var(--dur-short) var(--ease-out);
+}
+.fclear:hover { color: var(--color-ink); }
+
+.preview-row { display: flex; gap: var(--space-md); flex-wrap: wrap; margin-top: var(--space-md); align-items: flex-start; }
+#previewImg {
+  max-width: 260px;
+  max-height: 220px;
+  border-radius: var(--radius-card);
+  outline: var(--rule-hair) solid var(--color-rule);
+  outline-offset: -1px;
+}
+#pdfPages { display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+#pdfPages canvas {
+  max-height: 180px;
+  width: auto;
+  border-radius: var(--radius-card);
+  outline: var(--rule-hair) solid var(--color-rule);
+  outline-offset: -1px;
+}
+
+/* fields */
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-lg); }
+.field { display: flex; flex-direction: column; gap: var(--space-xs); min-width: 0; }
+.field label { font-size: var(--text-xs); color: var(--color-muted); }
+select, input[type=text], input[type=password] {
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-s);
+  min-width: 0;
+}
+select:hover, input[type=text]:hover, input[type=password]:hover { border-color: var(--color-muted); }
+input[type=password] { font-family: var(--font-outlier); }
+.checkline { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--text-s); color: var(--color-ink-2); cursor: pointer; }
+.checkline input { width: 14px; height: 14px; accent-color: var(--color-ink); }
+
+.hint {
+  margin-top: var(--space-md);
+  font-size: var(--text-s);
+  color: var(--color-muted);
+  line-height: 1.8;
+  max-width: 78ch;
+}
+.hint b { color: var(--color-ink-2); font-weight: 600; }
+
+/* run */
+.run { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; }
+.hint-inline { font-size: var(--text-s); color: var(--color-muted); }
+#progressWrap { display: none; margin-top: var(--space-lg); }
+.meter { height: 2px; background: var(--color-rule); overflow: hidden; }
+#progressBar {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--color-ink);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-short) var(--ease-out);
+}
+#progressText { margin-top: var(--space-xs); font-family: var(--font-outlier); font-size: var(--text-xs); color: var(--color-muted); }
+
+/* result */
+.res-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap; }
+.res-head .sec-head { flex: 1; }
+#resultToolbar { display: flex; gap: var(--space-xs); flex-wrap: wrap; margin-bottom: var(--space-md); }
+textarea {
+  width: 100%;
+  min-height: 220px;
+  padding: var(--space-md);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-s);
+  line-height: 1.7;
+  resize: vertical;
+}
+textarea::placeholder { color: var(--color-muted); }
+#tableWrap { overflow-x: auto; }
+#tableWrap table { border-collapse: collapse; width: 100%; font-size: var(--text-s); }
+#tableWrap th, #tableWrap td { border: var(--rule-hair) solid var(--color-rule); padding: var(--space-xs) var(--space-sm); text-align: left; }
+#tableWrap th { background: var(--color-paper-2); font-weight: 600; color: var(--color-ink); }
+.stat { margin-top: var(--space-sm); }
+
+/* ---------- footer ---------- */
+footer {
+  border-top: var(--rule-hair) solid var(--color-rule);
+  padding: var(--space-md) clamp(var(--space-md), 4vw, var(--space-xl));
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+.foot-in { max-width: var(--measure); margin: 0 auto; }
+
+/* ---------- toast ---------- */
+#toast {
+  position: fixed;
+  top: var(--space-md);
+  left: 50%;
+  transform: translateX(-50%) translateY(-160%);
+  background: var(--color-ink);
+  color: var(--color-paper);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-control);
+  font-size: var(--text-s);
+  font-weight: 600;
+  max-width: calc(100% - var(--space-lg));
+  opacity: 0;
+  visibility: hidden;
+  transition: transform var(--dur-short) var(--ease-out), opacity var(--dur-short) var(--ease-out), visibility var(--dur-short);
+  z-index: var(--z-toast);
+  pointer-events: none;
+}
+#toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
+
+@media (max-width: 900px) {
+  .hero-in { grid-template-columns: minmax(0, 1fr); }
+  h1 { max-width: 100%; }
+  .drop { margin-top: var(--space-lg); }
+}
+@media (max-width: 600px) {
+  h1 { font-size: clamp(30px, 8vw, 40px); }
+  .file-row .k { flex-basis: 100%; }
+  .fclear { margin-left: 0; }
+  .tab .mdesc { display: none; }
+  .fields { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
-  .brand { display: flex; align-items: center; gap: 10px; padding: 0 20px 24px; }
-  .brand .logo {
-    width: 36px; height: 36px; flex: 0 0 36px; background: var(--green); color: #fff;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 19px; font-weight: 700;
-  }
-  .brand b { display: block; font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.35; }
-  .brand small { font-size: 11px; color: var(--muted); }
-  .tabs { display: flex; flex-direction: column; gap: 2px; flex: 1; }
-  .tab {
-    display: flex; align-items: center; gap: 10px;
-    margin: 0 12px; padding: 11px 14px;
-    background: transparent; border: none; cursor: pointer;
-    font-family: inherit; font-size: 14px; color: var(--text-2); text-align: left;
-    transition: background .15s, color .15s;
-  }
-  .tab .mi { font-size: 16px; width: 20px; text-align: center; }
-  .tab:hover { background: #ececec; }
-  .tab.active { background: var(--green); color: #fff; }
-  .tab:disabled { opacity: .38; cursor: not-allowed; }
-  .side-home {
-    display: block; margin: 12px 20px 0; padding-top: 14px;
-    border-top: 1px solid var(--border);
-    font-size: 12.5px; color: var(--muted); text-decoration: none;
-  }
-  .side-home:hover { color: var(--green); }
-
-  /* ---------- 右侧主内容 ---------- */
-  .main { flex: 1; min-width: 0; }
-  .content { max-width: 780px; margin: 0 auto; padding: 38px 36px 60px; }
-  .page-head { margin-bottom: 20px; }
-  .page-head h1 { font-size: 21px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  .tag-free { background: var(--orange); color: #fff; font-size: 11px; font-weight: 500; padding: 2px 8px; }
-  .sub { font-size: 12.5px; color: var(--muted); line-height: 1.7; }
-
-  #dropzone {
-    border: 2px dashed var(--line); background: var(--panel);
-    padding: 46px 20px; text-align: center; cursor: pointer; transition: .18s;
-  }
-  #dropzone:hover, #dropzone.drag { border-color: var(--green); background: var(--green-soft); }
-  #dropzone .icon { font-size: 42px; margin-bottom: 14px; opacity: .85; }
-  #dropzone .t1 { font-size: 14px; color: var(--text-2); margin-bottom: 6px; }
-  #dropzone .t2 { font-size: 12px; color: var(--muted); margin-bottom: 18px; }
-
-  .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 9px 20px; font-size: 14px; font-family: inherit;
-    background: var(--panel); color: var(--text-2);
-    border: 1px solid var(--input); cursor: pointer; transition: .15s;
-  }
-  .btn:hover { border-color: var(--green); color: var(--green); }
-  .btn.primary, .btn.green { background: var(--green); border-color: var(--green); color: #fff; font-weight: 500; }
-  .btn.primary:hover, .btn.green:hover { background: var(--green-dark); border-color: var(--green-dark); color: #fff; }
-  .btn.gold { background: var(--orange); border-color: var(--orange); color: #fff; font-weight: 500; }
-  .btn.gold:hover { background: #e29a3c; border-color: #e29a3c; color: #fff; }
-  .btn:disabled { background: var(--disabled); border-color: var(--disabled); color: #fff; opacity: 1; cursor: not-allowed; }
-  .btn.sm { padding: 6px 14px; font-size: 12.5px; }
-  input[type=file] { display: none; }
-
-  #panel { display: none; margin-top: 22px; }
-  .card {
-    background: var(--panel); border: 1px solid var(--border);
-    padding: 18px 20px; margin-bottom: 14px;
-  }
-  .card h3 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 14px; }
-
-  .fmeta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .fname { font-size: 14px; font-weight: 600; word-break: break-all; flex: 1; min-width: 200px; }
-  .fsize { font-size: 12px; color: var(--muted); white-space: nowrap; }
-  .fclear { font-size: 12px; color: var(--muted); cursor: pointer; }
-  .fclear:hover { color: #d9534f; }
-
-  .preview-row { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; margin-top: 12px; }
-  #previewImg { max-width: 300px; max-height: 220px; border: 1px solid var(--border); }
-  #pdfInfo { font-size: 12px; color: var(--muted); }
-  #pdfPages { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-  #pdfPages canvas { border: 1px solid var(--border); }
-
-  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
-  .row + .row { margin-top: 14px; }
-  .field { display: flex; flex-direction: column; gap: 7px; }
-  .field label { font-size: 12.5px; color: var(--text-2); }
-  select, input[type=text], input[type=password] {
-    background: #fff; border: 1px solid var(--input); color: var(--text);
-    padding: 8px 10px; font-size: 13px; font-family: inherit; outline: none; min-width: 160px;
-  }
-  select:focus, input:focus { border-color: var(--green); }
-  select:disabled, input:disabled { background: #f2f2f2; color: #999; }
-  .hint { font-size: 12px; color: var(--muted); line-height: 1.7; }
-  .hint b { color: var(--text-2); font-weight: 600; }
-
-  .checkline { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); cursor: pointer; }
-  .checkline input { accent-color: var(--green); width: 15px; height: 15px; }
-
-  /* 进度 */
-  #progressWrap { display: none; margin-top: 12px; }
-  .pbar { height: 6px; background: #e8e8e8; overflow: hidden; }
-  .pbar > div { height: 100%; width: 0; background: var(--green); transition: width .15s; }
-  #progressText { font-size: 12px; color: var(--muted); margin-top: 8px; }
-
-  /* 结果 */
-  #resultCard { display: none; }
-  #resultToolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-  #textResult, #latexResult {
-    width: 100%; min-height: 220px; background: #fafafa; border: 1px solid var(--input);
-    color: var(--text); padding: 12px; font-size: 13.5px; line-height: 1.75;
-    font-family: ui-monospace, "SF Mono", Consolas, monospace; resize: vertical; outline: none;
-  }
-  #textResult:focus, #latexResult:focus { border-color: var(--green); background: #fff; }
-  #latexResult { min-height: 120px; margin-top: 10px; }
-  #tableWrap { overflow: auto; max-height: 420px; border: 1px solid var(--input); }
-  #tableWrap table { border-collapse: collapse; width: 100%; font-size: 13px; }
-  #tableWrap th, #tableWrap td { border: 1px solid #e5e5e5; padding: 8px 10px; text-align: left; }
-  #tableWrap th { background: #f5f5f5; color: var(--text); font-weight: 600; white-space: nowrap; }
-  #tableWrap td { background: #fff; }
-  .stat { font-size: 12px; color: var(--muted); margin-top: 10px; }
-
-  /* toast */
-  #toast {
-    position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%) translateY(16px);
-    background: #fff; border: 1px solid var(--input); color: var(--text);
-    padding: 11px 20px; font-size: 13.5px; opacity: 0; pointer-events: none;
-    transition: .25s; z-index: 99; box-shadow: 0 4px 16px rgba(0,0,0,.08); max-width: 90vw;
-  }
-  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-  @media (max-width: 820px) {
-    .layout { flex-direction: column; }
-    .sidebar { width: 100%; flex-basis: auto; height: auto; position: static; border-right: none; border-bottom: 1px solid var(--border); padding: 16px 0 12px; }
-    .brand { padding: 0 18px 14px; }
-    .tabs { flex-direction: row; flex-wrap: wrap; gap: 6px; padding: 0 10px; }
-    .tab { margin: 0; flex: 1 1 44%; justify-content: center; }
-    .side-home { margin: 12px 18px 0; }
-    .content { padding: 26px 18px 50px; }
-  }
+}
 </style>
 </head>
 <body>
-<div class="layout">
-  <aside class="sidebar">
-    <div class="brand">
-      <span class="logo">文</span>
-      <div>
-        <b>文字识别</b>
-        <small>OCR 在线工具</small>
-      </div>
-    </div>
-    <nav class="tabs">
-      <button class="tab active" data-mode="text"><span class="mi">🔤</span><span class="mn">图片文字提取</span></button>
-      <button class="tab" data-mode="formula"><span class="mi">🧮</span><span class="mn">数学公式识别</span></button>
-      <button class="tab" data-mode="table"><span class="mi">📊</span><span class="mn">电子表格识别</span></button>
-      <button class="tab" data-mode="pdf"><span class="mi">📄</span><span class="mn">扫描PDF转文字</span></button>
-    </nav>
-    <a class="side-home" href="/">← 返回网站首页</a>
-  </aside>
-  <main class="main">
-    <div class="content">
-      <div class="page-head">
-        <h1><span id="modeTitle">图片文字提取（OCR）</span><span class="tag-free">本地免费</span></h1>
-        <div class="sub">点击下方按钮选择图片 / 将图片拖入虚线框 / 可直接粘贴剪贴板截图 · 支持 JPG / PNG / BMP / WebP / PDF · 可导出 docx / txt / md / xlsx</div>
-      </div>
 
-      <div id="dropzone">
-        <div class="icon">🖼️</div>
-        <div class="t1">将图片或 PDF 拖入此处，或点击选择文件</div>
-        <div class="t2">支持 png / jpg / jpeg / bmp / webp / pdf</div>
-        <button class="btn primary" type="button">+ 点此选择图片</button>
-        <input type="file" id="fileInput" accept=".png,.jpg,.jpeg,.bmp,.webp,.pdf" />
-      </div>
-
-      <div id="panel">
-        <div class="card">
-          <div class="fmeta">
-            <span class="fname" id="fileName"></span>
-            <span class="fsize" id="fileSize"></span>
-            <span class="fclear" id="fileClear">✕ 移除</span>
-          </div>
-          <div class="preview-row">
-            <img id="previewImg" alt="预览" style="display:none" />
-            <div id="pdfInfo" style="display:none"></div>
-            <div id="pdfPages"></div>
-          </div>
-        </div>
-
-    <div class="card">
-      <h3>识别设置</h3>
-      <div class="row">
-        <div class="field">
-          <label>识别引擎</label>
-          <select id="engineSel">
-            <option value="tesseract" selected>本地 Tesseract（离线可用）</option>
-            <option value="ocrspace">在线 OCR.space（中文最准，需 Key）</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>识别语言</label>
-          <select id="langSel">
-            <option value="chi_sim+eng" selected>中文 + 英文</option>
-            <option value="eng">仅英文</option>
-          </select>
-        </div>
-        <div class="field" id="psmField">
-          <label>页面分割 (PSM)</label>
-          <select id="psmSel">
-            <option value="3" selected>自动（推荐）</option>
-            <option value="6">单块文本</option>
-            <option value="11">稀疏文字</option>
-            <option value="7">单行文本</option>
-            <option value="4">单列文本</option>
-          </select>
-        </div>
-        <div class="field" id="preprocessField">
-          <label>图像预处理</label>
-          <select id="preprocessSel">
-            <option value="none" selected>不处理（默认，最稳定）</option>
-            <option value="enhance">自动增强</option>
-            <option value="binary">二值化（黑白文档）</option>
-          </select>
-        </div>
-        <div class="field" id="ocrspaceField" style="display:none">
-          <label>OCR.space API Key</label>
-          <input type="password" id="ocrspaceKey" placeholder="在 ocr.space/apikey 免费注册获取" style="min-width:220px" />
-        </div>
-        <div class="field" id="tableOptField" style="display:none">
-          <label>&nbsp;</label>
-          <label class="checkline"><input type="checkbox" id="headerCheck" checked /> 首行为表头</label>
-        </div>
-        <div class="field" id="pdfOptField" style="display:none">
-          <label>&nbsp;</label>
-          <label class="checkline"><input type="checkbox" id="scanCheck" /> 扫描版 PDF（每页转图片后 OCR）</label>
-        </div>
-      </div>
-      <div class="hint" style="margin-top:10px">
-        💡 <b>在线 OCR.space</b>：识别质量最高（含中文），图片会上传到 ocr.space，Key 免费注册（每月 2.5 万次额度），仅保存在你本机。⚠️ <b>本地 Tesseract</b>：首次识别需联网下载语言包（约 15MB）后浏览器缓存，可离线，文件不上传。
-      </div>
-    </div>
-
-    <div class="card" id="formulaOnlineCard" style="display:none">
-      <h3>在线公式识别（可选，识别更准）</h3>
-      <div class="row">
-        <div class="field">
-          <label>服务商</label>
-          <select id="providerSel">
-            <option value="simpletex">SimpleTex（免费，推荐）</option>
-            <option value="mathpix">Mathpix</option>
-          </select>
-        </div>
-        <div class="field" id="simpletexField">
-          <label>SimpleTex Token</label>
-          <input type="password" id="simpletexToken" placeholder="在 simpletex.cn 获取" />
-        </div>
-        <div class="field" id="mathpixField" style="display:none">
-          <label>Mathpix App ID / App Key</label>
-          <div style="display:flex;gap:8px">
-            <input type="text" id="mathpixAppId" placeholder="app_id" style="min-width:140px" />
-            <input type="password" id="mathpixAppKey" placeholder="app_key" style="min-width:180px" />
-          </div>
-        </div>
-      </div>
-      <div class="hint" style="margin-top:10px">密钥仅保存在你本机浏览器 localStorage 中，图片会发送到所选服务商用于识别。</div>
-    </div>
-
-    <div class="card" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
-      <button class="btn green" id="btnRecognize" type="button" style="padding:11px 24px; font-size:14px">🚀 开始识别</button>
-      <span class="hint">识别前请先在上方选择「识别模式」。</span>
-    </div>
-
-    <div id="progressWrap">
-      <div class="pbar"><div id="progressBar"></div></div>
-      <div id="progressText"></div>
-    </div>
-
-    <div class="card" id="resultCard">
-      <h3>识别结果</h3>
-      <div id="resultToolbar">
-        <button class="btn sm" id="btnTxt">导出 TXT</button>
-        <button class="btn sm" id="btnMd">导出 MD</button>
-        <button class="btn sm" id="btnDocx">导出 DOCX</button>
-        <button class="btn sm" id="btnCsv">导出 CSV</button>
-        <button class="btn sm" id="btnXlsx">导出 XLSX</button>
-      </div>
-      <textarea id="textResult" spellcheck="false"></textarea>
-      <textarea id="latexResult" placeholder="LaTeX 结果将显示在这里（公式识别）" spellcheck="false" style="display:none"></textarea>
-      <div id="tableWrap" style="display:none"></div>
-      <div class="stat" id="resultStat"></div>
-    </div>
+<header class="nav">
+  <div class="nav-in">
+    <span class="brand">文字识别</span>
+    <span class="brand-sub">OCR 在线工具</span>
+    <nav class="nav-links"><a href="/">返回首页</a></nav>
   </div>
-    </div>
-  </main>
-</div>
+</header>
 
+<main>
+  <section class="hero">
+    <div class="wrap hero-in">
+      <div>
+        <h1><span id="modeTitle">图片文字提取（OCR）</span></h1>
+        <p class="lede">点击按钮选图，或把图片拖进来，也可以直接粘贴剪贴板截图。</p>
+        <p class="note">支持 JPG、PNG、BMP、WebP 与 PDF；结果可导出 docx、txt、md、xlsx。</p>
+        <div class="pills">
+          <span class="tag tag--in">本地免费</span>
+          <span class="tag">文件不上传</span>
+        </div>
+      </div>
+      <div class="side">
+        <div id="dropzone" class="drop">
+          <div class="drop-k">选择文件</div>
+          <div class="drop-line">拖入图片或 PDF，或点击选择</div>
+          <div class="drop-note">png / jpg / jpeg / bmp / webp / pdf</div>
+          <button class="btn btn--primary" type="button">选择图片</button>
+          <input type="file" id="fileInput" accept=".png,.jpg,.jpeg,.bmp,.webp,.pdf" />
+        </div>
+        <div>
+          <div class="modes-k">识别模式</div>
+          <div class="ruled">
+            <button class="tab active" data-mode="text">
+              <span class="mn">图片文字提取</span>
+              <span class="mdesc">印刷体、截图</span>
+              <span class="pill">当前</span>
+            </button>
+            <button class="tab" data-mode="formula">
+              <span class="mn">数学公式识别</span>
+              <span class="mdesc">转 LaTeX</span>
+              <span class="pill">当前</span>
+            </button>
+            <button class="tab" data-mode="table">
+              <span class="mn">电子表格识别</span>
+              <span class="mdesc">转 xlsx</span>
+              <span class="pill">当前</span>
+            </button>
+            <button class="tab" data-mode="pdf">
+              <span class="mn">扫描 PDF 转文字</span>
+              <span class="mdesc">逐页识别</span>
+              <span class="pill">当前</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="panel">
+    <section class="sec">
+      <div class="wrap">
+        <div class="file-row">
+          <span class="k">文件</span>
+          <span class="fname" id="fileName"></span>
+          <span class="fsize measure" id="fileSize"></span>
+          <button class="fclear" id="fileClear" type="button">移除</button>
+        </div>
+        <div class="preview-row">
+          <img id="previewImg" alt="预览" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="display:none" />
+          <div id="pdfInfo" class="measure" style="display:none"></div>
+          <div id="pdfPages"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="wrap">
+        <h2 class="sec-head">识别设置</h2>
+        <div class="fields">
+          <div class="field">
+            <label for="engineSel">识别引擎</label>
+            <select id="engineSel">
+              <option value="tesseract" selected>本地 Tesseract（离线可用）</option>
+              <option value="ocrspace">在线 OCR.space（中文最准，需 Key）</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="langSel">识别语言</label>
+            <select id="langSel">
+              <option value="chi_sim+eng" selected>中文 + 英文</option>
+              <option value="eng">仅英文</option>
+            </select>
+          </div>
+          <div class="field" id="psmField">
+            <label for="psmSel">页面分割 (PSM)</label>
+            <select id="psmSel">
+              <option value="3" selected>自动（推荐）</option>
+              <option value="6">单块文本</option>
+              <option value="11">稀疏文字</option>
+              <option value="7">单行文本</option>
+              <option value="4">单列文本</option>
+            </select>
+          </div>
+          <div class="field" id="preprocessField">
+            <label for="preprocessSel">图像预处理</label>
+            <select id="preprocessSel">
+              <option value="none" selected>不处理（默认，最稳定）</option>
+              <option value="enhance">自动增强</option>
+              <option value="binary">二值化（黑白文档）</option>
+            </select>
+          </div>
+          <div class="field" id="ocrspaceField" style="display:none">
+            <label for="ocrspaceKey">OCR.space API Key</label>
+            <input type="password" id="ocrspaceKey" placeholder="在 ocr.space/apikey 免费注册获取" />
+          </div>
+          <div class="field" id="tableOptField" style="display:none">
+            <span class="k" aria-hidden="true">&nbsp;</span>
+            <label class="checkline"><input type="checkbox" id="headerCheck" checked /> 首行为表头</label>
+          </div>
+          <div class="field" id="pdfOptField" style="display:none">
+            <span class="k" aria-hidden="true">&nbsp;</span>
+            <label class="checkline"><input type="checkbox" id="scanCheck" /> 扫描版 PDF，逐页转图片再识别</label>
+          </div>
+        </div>
+        <p class="hint">
+          <b>在线 OCR.space</b>：识别质量最高（含中文），图片会上传到 ocr.space，Key 免费注册（每月 2.5 万次额度），仅保存在你本机。<br />
+          <b>本地 Tesseract</b>：首次识别需联网下载语言包（约 15MB）后浏览器缓存，可离线，文件不上传。
+        </p>
+      </div>
+    </section>
+
+    <section class="sec" id="formulaOnlineCard" style="display:none">
+      <div class="wrap">
+        <h2 class="sec-head">在线公式识别（可选，识别更准）</h2>
+        <div class="fields">
+          <div class="field">
+            <label for="providerSel">服务商</label>
+            <select id="providerSel">
+              <option value="simpletex">SimpleTex（免费，推荐）</option>
+              <option value="mathpix">Mathpix</option>
+            </select>
+          </div>
+          <div class="field" id="simpletexField">
+            <label for="simpletexToken">SimpleTex Token</label>
+            <input type="password" id="simpletexToken" placeholder="在 simpletex.cn 获取" />
+          </div>
+          <div class="field" id="mathpixField" style="display:none">
+            <label for="mathpixAppId">Mathpix App ID / App Key</label>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="mathpixAppId" placeholder="app_id" />
+              <input type="password" id="mathpixAppKey" placeholder="app_key" />
+            </div>
+          </div>
+        </div>
+        <p class="hint">密钥仅保存在你本机浏览器 localStorage 中，图片会发送到所选服务商用于识别。</p>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="wrap">
+        <div class="run">
+          <button class="btn btn--primary" id="btnRecognize" type="button">开始识别</button>
+          <span class="hint-inline">识别前请先在上面选择模式与设置。</span>
+        </div>
+        <div id="progressWrap">
+          <div class="meter"><span id="progressBar"></span></div>
+          <div id="progressText"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="resultCard">
+      <div class="wrap">
+        <div class="res-head"><h2 class="sec-head">识别结果</h2></div>
+        <div id="resultToolbar">
+          <button class="btn sm" id="btnTxt">导出 TXT</button>
+          <button class="btn sm" id="btnMd">导出 MD</button>
+          <button class="btn sm" id="btnDocx">导出 DOCX</button>
+          <button class="btn sm" id="btnCsv">导出 CSV</button>
+          <button class="btn sm" id="btnXlsx">导出 XLSX</button>
+        </div>
+        <textarea id="textResult" spellcheck="false"></textarea>
+        <textarea id="latexResult" placeholder="LaTeX 结果将显示在这里（公式识别）" spellcheck="false" style="display:none"></textarea>
+        <div id="tableWrap" style="display:none"></div>
+        <div class="stat measure" id="resultStat"></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer><div class="foot-in">识别在本机浏览器完成，刷新即清空，不留下任何文件</div></footer>
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
@@ -326,6 +632,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
+
 (function(){
   "use strict";
 
@@ -527,6 +834,7 @@
   function resetFile() {
     currentFile = null;
     panel.style.display = "none";
+    document.body.classList.remove("has-file");
     dropzone.style.display = "";
     previewImg.style.display = "none"; previewImg.src = "";
     pdfInfo.style.display = "none"; pdfInfo.innerHTML = "";
@@ -539,8 +847,8 @@
   async function handleFile(file) {
     if (!isImage(file.name) && !isPdf(file.name)) { toast("仅支持 png / jpg / bmp / webp / pdf 文件"); return; }
     currentFile = file;
-    dropzone.style.display = "none";
     panel.style.display = "block";
+    document.body.classList.add("has-file");
     fileName.textContent = file.name;
     fileSize.textContent = fmtSize(file.size);
     pdfPages.innerHTML = "";
@@ -554,7 +862,6 @@
       previewImg.src = url; previewImg.style.display = "";
       // 图片默认图片文字；表格/公式可选
       setMode("text");
-      tableOptField.style.display = "";
       pdfOptField.style.display = "none";
       enableTabs({ text:true, table:true, formula:true, pdf:false });
     } else {
@@ -612,6 +919,8 @@
     document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.mode === mode));
     if (modeTitle && MODE_TITLES[mode]) modeTitle.textContent = MODE_TITLES[mode];
     formulaOnlineCard.style.display = mode === "formula" ? "" : "none";
+    tableOptField.style.display = mode === "table" ? "" : "none";
+    pdfOptField.style.display = mode === "pdf" ? "" : "none";
     resultCard.style.display = "none";
     currentKind = null;
   }
@@ -699,7 +1008,7 @@
     return worker;
   }
   function setProgress(p, txt) {
-    progressBar.style.width = Math.round(p*100) + "%";
+    progressBar.style.transform = "scaleX(" + p + ")";
     progressText.textContent = txt || "";
   }
   function hideProgress() { progressWrap.style.display = "none"; }
