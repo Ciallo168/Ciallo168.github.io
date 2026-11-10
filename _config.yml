@@ -13,4 +13,4 @@ twitter_username: Ciallo168
 
 # 构建设置
 markdown: kramdown
-permalink: /:2026/:07/:13/:myblog/
+permalink: /:year/:month/:day/:title/

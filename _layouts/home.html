@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>我的个人网站</title>
+<meta name="description" content="MikiP 的个人网站：卡牌工具、音频工具与文字识别，全部在浏览器本地运行。" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Archivo:wght@400;500&family=Archivo+Narrow:wght@500&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="{{ '/assets/css/formwork.css' | relative_url }}" />
+</head>
+<body>
+
+<div class="grain" aria-hidden="true"></div>
+
+<header class="bar">
+  <div class="bar-in">
+    <a class="mark" href="/">MikiP</a>
+    <nav>
+      <a href="#tools">工具</a>
+      <a href="#blog">博客</a>
+      <a href="#about">关于</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <h1>我的个人网站</h1>
+      <p class="lede">记录学习编程的点点滴滴。这里的工具都在浏览器里跑，文件不上传。</p>
+      <div class="actions">
+        <a class="btn btn--primary" href="#tools">看工具</a>
+        <a class="link" href="/about/">关于我</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="tools">
+    <div class="wrap">
+      <h2 class="sec-head">实用工具<span class="note">共 07 项</span></h2>
+      <ul class="rows">
+        <li><a href="/ydk-merger/">
+          <span class="no">01</span>
+          <span class="nm">YDK 卡组合并工具</span>
+          <span class="ds">上传多个 .ydk 卡组文件，一键智能合并导出</span>
+        </a></li>
+        <li><a href="/decks">
+          <span class="no">02</span>
+          <span class="nm">卡组 &amp; 小轴资源</span>
+          <span class="ds">32 个预组卡组和小轴，可供下载</span>
+        </a></li>
+        <li><a href="/audio-player/">
+          <span class="no">03</span>
+          <span class="nm">本地音乐播放器</span>
+          <span class="ds">拖入本地音频文件或文件夹即可在线播放，文件不上传</span>
+        </a></li>
+        <li><a href="/audio-extractor/">
+          <span class="no">04</span>
+          <span class="nm">视频提取音频</span>
+          <span class="ds">拖入 mp4 等视频文件，提取音轨导出 mp3 / wav，纯本地处理</span>
+        </a></li>
+        <li><a href="/surround/">
+          <span class="no">05</span>
+          <span class="nm">MP3 环绕音处理</span>
+          <span class="ds">指定时间段让声音 360° 环绕，可试听并导出，深色与白纸两版可切换</span>
+        </a></li>
+        <li><a href="/surround/en/">
+          <span class="no">06</span>
+          <span class="nm">MP3 Surround, English</span>
+          <span class="ds">同一工具的英文版，界面与说明全英文，night 与 paper 两版可切换</span>
+        </a></li>
+        <li><a href="/ocr/">
+          <span class="no">07</span>
+          <span class="nm">图片文字识别</span>
+          <span class="ds">图片、表格、数学公式、PDF 提取文字，导出 docx / txt / md / xlsx</span>
+        </a></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="sec" id="blog">
+    <div class="wrap">
+      <h2 class="sec-head">博客<span class="note">共 01 篇</span></h2>
+      <ul class="rows">
+        <li><a href="{% post_url 2026-07-13-我的第一篇文章 %}">
+          <span class="no">01</span>
+          <span class="nm">我的第一篇文章</span>
+          <span class="ds">2026 年 7 月 11 日</span>
+        </a></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="band" id="about">
+    <div class="wrap band-in">
+      <h2>关于我</h2>
+      <div>
+        <ul class="facts">
+          <li>郑州航空工业管理学院，人工智能专业</li>
+          <li>正在学习 Python 与 AI</li>
+          <li>这个站点的工具大多是单文件网页，能离线跑</li>
+        </ul>
+        <a class="btn btn--ghost" href="/about/">了解更多</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="pin">
+    <div class="wrap pin-in">
+      <figure class="plate plate--photo">
+        <img src="{{ '/assets/images/home-portrait.jpg' | relative_url }}" alt="双马尾少女的插画" width="900" height="823" />
+        <figcaption><span class="figure-sm">07</span>个工具，全部在本机运行</figcaption>
+      </figure>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="foot-in">
+    <span>MikiP</span>
+    <span class="foot-links">
+      <a href="https://github.com/Ciallo168">GitHub</a>
+      <a href="/about/">关于</a>
+    </span>
+  </div>
+</footer>
+
+</body>
+</html>
