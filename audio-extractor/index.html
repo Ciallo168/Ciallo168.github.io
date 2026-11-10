@@ -4,197 +4,499 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>视频提取音频</title>
+<meta name="description" content="拖入 mp4、mov、webm 等视频，在浏览器里取出音轨，导出 WAV 或 MP3。文件不上传。" />
+<link rel="preconnect" href="https://api.fontshare.com" />
+<link href="https://api.fontshare.com/v2/css?f[]=switzer@400,500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet" />
 <style>
-  :root {
-    --bg: #f7f7f8;
-    --surface: #ffffff;
-    --line: #ededf0;
-    --line-2: #e0e0e4;
-    --ink: #17181c;
-    --ink-2: #565b63;
-    --muted: #9a9ea7;
-    --green: #469456;
-    --green-dark: #3d7f4b;
-    --green-soft: #f2f7f3;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-    background: var(--bg);
-    color: var(--ink);
-    min-height: 100vh;
-    display: flex; flex-direction: column;
-    -webkit-font-smoothing: antialiased;
-  }
-  .wrap { width: 100%; max-width: 720px; margin: 0 auto; padding: 44px 24px 56px; flex: 1; }
+/* Hallmark · redesign: full · scope: app · theme: Rim · colourway: night · genre: modern-minimal · v2.5 · lang: zh
+   nav: the name and one back link, no wordmark row · footer: one line · job: process and export · surface: none
+   pre-emit critique: P4 H4 E4 S4 R5 · weakest: P, an extractor makes no argument; the wait is the only thing to show, so the figure and the meter carry it */
+:root {
+  --color-paper: oklch(9% 0.008 75);
+  --color-paper-2: oklch(12.5% 0.009 75);
+  --color-paper-3: oklch(6.5% 0.007 75);
+  --color-ink: oklch(94% 0.010 80);
+  --color-ink-2: oklch(84% 0.011 80);
+  --color-muted: oklch(68% 0.012 80);
+  --color-muted-2: oklch(50% 0.010 80);
+  --color-rule: oklch(25% 0.010 78);
+  --color-rule-2: oklch(16% 0.009 78);
+  --color-accent: oklch(72% 0.17 45);
+  --color-accent-ink: oklch(10% 0.02 45);
+  --color-accent-2: oklch(74% 0.12 250);
+  --color-focus: oklch(78% 0.15 45);
 
-  .crumb { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 30px; color: var(--muted); }
-  .crumb a {
-    display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px;
-    color: var(--ink-2); background: var(--surface); border: 1px solid var(--line);
-    text-decoration: none; transition: color .15s, border-color .15s;
+  --font-display: "Switzer", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-display);
+  --font-outlier: "Geist Mono", ui-monospace, monospace;
+
+  --radius-card: 0;
+  --radius-pill: 0;
+  --rule-hair: 1px;
+  --shadow-card: none;
+  --tracking-display: -0.04em;
+  --display-weight: 500;
+
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --space-3xl: 96px;
+
+  --text-xs: 12px;
+  --text-s: 13px;
+  --text-m: 16px;
+  --text-l: 17px;
+  --text-display-s: 28px;
+  --text-display: 40px;
+
+  --dur-short: 200ms;
+  --dur-med: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.6, 0.2, 1);
+
+  --z-raised: 10;
+  --z-toast: 500;
+  --measure: 1120px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { overflow-x: clip; background: var(--color-paper); }
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-m);
+  line-height: 1.55;
+  color: var(--color-ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: color-mix(in oklab, var(--color-accent) 35%, transparent); color: var(--color-ink); }
+html { scrollbar-color: var(--color-rule) var(--color-paper); }
+body { caret-color: var(--color-accent); }
+
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+/* ---------- nav ---------- */
+.nav { border-bottom: var(--rule-hair) solid var(--color-rule); }
+.nav-in {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: var(--space-md) clamp(var(--space-md), 4vw, var(--space-xl));
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+.brand { font-size: var(--text-s); font-weight: 500; letter-spacing: -0.01em; }
+.nav-links { margin-left: auto; display: flex; gap: var(--space-lg); }
+.nav-links a {
+  font-size: var(--text-s);
+  font-weight: 500;
+  color: var(--color-muted);
+  text-decoration: none;
+  transition: color var(--dur-short) var(--ease-out);
+}
+.nav-links a:hover { color: var(--color-ink); text-decoration: underline; text-underline-offset: 4px; }
+
+/* ---------- layout ---------- */
+main { flex: 1; }
+.wrap {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 0 clamp(var(--space-md), 4vw, var(--space-xl));
+}
+
+/* ---------- hero ---------- */
+.hero {
+  display: flex;
+  align-items: center;
+  min-height: calc(100vh - 96px);
+  padding: clamp(var(--space-xl), 6vw, var(--space-3xl)) 0;
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+}
+.has-file .hero {
+  min-height: 0;
+  padding: var(--space-xl) 0 var(--space-lg);
+}
+.hero-in {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: clamp(var(--space-lg), 6vw, var(--space-2xl));
+  align-items: start;
+}
+h1 {
+  font-weight: var(--display-weight);
+  font-size: clamp(34px, 4.6vw, 62px);
+  letter-spacing: var(--tracking-display);
+  line-height: 1.04;
+  max-width: 100%;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+.lede {
+  margin-top: var(--space-md);
+  font-size: var(--text-l);
+  color: var(--color-ink-2);
+  max-width: 100%;
+  text-wrap: pretty;
+}
+.note {
+  margin-top: var(--space-xs);
+  font-size: var(--text-s);
+  color: var(--color-muted);
+  max-width: 26em;
+  text-wrap: pretty;
+}
+.fmt-list {
+  margin-top: var(--space-lg);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+.fmt-list span {
+  font-family: var(--font-outlier);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  border: var(--rule-hair) solid var(--color-rule);
+  padding: var(--space-3xs) var(--space-xs);
+}
+
+/* ---------- drop ---------- */
+.drop {
+  position: relative;
+  background: var(--color-paper-2);
+  border: var(--rule-hair) solid var(--color-rule);
+  padding: var(--space-lg);
+  cursor: pointer;
+  transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+.ticks::before, .ticks::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 0 solid var(--color-muted);
+  pointer-events: none;
+  z-index: var(--z-raised);
+}
+.ticks::before { top: calc(-1 * var(--space-xs)); left: calc(-1 * var(--space-xs)); border-width: 1px 0 0 1px; }
+.ticks::after { right: calc(-1 * var(--space-xs)); bottom: calc(-1 * var(--space-xs)); border-width: 0 1px 1px 0; }
+.drop:hover, .drop.drag { background: var(--color-paper); border-color: var(--color-muted); }
+.drop-k {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-muted);
+  margin-bottom: var(--space-sm);
+}
+.drop-line { font-size: var(--text-l); font-weight: 500; }
+.drop-note {
+  margin: var(--space-2xs) 0 var(--space-md);
+  font-size: var(--text-s);
+  color: var(--color-muted);
+}
+.drop .btn { width: 100%; }
+
+.has-file .drop { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-sm) var(--space-md); flex-wrap: wrap; }
+.has-file .drop-k { margin: 0; }
+.has-file .drop-line { font-size: var(--text-s); color: var(--color-muted); }
+.has-file .drop-note { display: none; }
+.has-file .drop .btn { width: auto; margin-left: auto; }
+input[type=file] { display: none; }
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-s);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
+}
+.btn:hover { border-color: var(--color-muted); }
+.btn:active { background: var(--color-paper-3); }
+.btn--primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-ink); }
+.btn--primary:hover { background: color-mix(in oklab, var(--color-accent) 88%, var(--color-ink)); border-color: transparent; }
+.btn--primary:active { background: color-mix(in oklab, var(--color-accent) 76%, var(--color-paper-3)); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ---------- file row ---------- */
+#panel { display: none; }
+.file-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  padding: var(--space-md) 0;
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+  flex-wrap: wrap;
+}
+.k { font-size: var(--text-xs); font-weight: 500; color: var(--color-muted); }
+.file-row .k { flex: 0 0 72px; }
+.fname {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-l);
+  font-weight: 500;
+  word-break: break-all;
+}
+.measure {
+  font-family: var(--font-outlier);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-s);
+  color: var(--color-ink-2);
+}
+.fmeta { flex: 0 0 auto; }
+.fdel {
+  border: none;
+  background: none;
+  color: var(--color-muted);
+  font-size: var(--text-m);
+  cursor: pointer;
+  padding: var(--space-2xs) var(--space-xs);
+  margin-left: auto;
+  transition: color var(--dur-short) var(--ease-out);
+}
+.fdel:hover { color: var(--color-accent); }
+
+/* ---------- sections ---------- */
+.sec { padding: clamp(var(--space-xl), 4vw, var(--space-2xl)) 0; border-bottom: var(--rule-hair) solid var(--color-rule); }
+.sec:last-of-type { border-bottom: none; }
+.sec-head {
+  font-size: var(--text-s);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: var(--color-ink);
+  padding-bottom: var(--space-sm);
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+  margin-bottom: var(--space-lg);
+}
+
+/* ---------- options ---------- */
+.opt-row { display: flex; flex-wrap: wrap; gap: var(--space-xl); align-items: flex-start; }
+.opt { display: flex; flex-direction: column; gap: var(--space-xs); }
+.seg { display: inline-flex; border: var(--rule-hair) solid var(--color-rule); }
+.seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  border: none;
+  background: none;
+  color: var(--color-ink-2);
+  cursor: pointer;
+  padding: var(--space-xs) var(--space-md);
+  font-family: var(--font-body);
+  font-size: var(--text-s);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
+}
+.seg button + button { border-left: var(--rule-hair) solid var(--color-rule); }
+.seg button:hover { color: var(--color-ink); background: var(--color-paper-2); }
+.seg button.active { background: none; color: var(--color-ink); }
+.seg button.active::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border: 3px solid var(--color-accent);
+  flex-shrink: 0;
+}
+select {
+  padding: var(--space-xs) var(--space-sm);
+  font-family: var(--font-outlier);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-s);
+  background: var(--color-paper);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: 0;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+select:hover { border-color: var(--color-muted); }
+
+.action { margin-top: var(--space-xl); display: flex; gap: var(--space-sm); flex-wrap: wrap; }
+
+#progress { display: none; margin-top: var(--space-lg); }
+.meter { height: 2px; background: var(--color-paper-3); box-shadow: inset 0 0 0 var(--rule-hair) var(--color-rule); overflow: hidden; }
+#pbarFill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--color-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-med) var(--ease-out);
+}
+.ptext {
+  margin-top: var(--space-xs);
+  font-family: var(--font-outlier);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+
+/* ---------- footnote ---------- */
+.hint {
+  padding: var(--space-lg) 0 var(--space-2xl);
+  font-size: var(--text-s);
+  line-height: 1.8;
+  color: var(--color-muted);
+  max-width: 62ch;
+}
+.hint b { color: var(--color-ink-2); font-weight: 500; }
+
+footer {
+  border-top: var(--rule-hair) solid var(--color-rule);
+  padding: var(--space-md) clamp(var(--space-md), 4vw, var(--space-xl));
+  font-size: var(--text-xs);
+  color: var(--color-muted-2);
+}
+.foot-in { max-width: var(--measure); margin: 0 auto; }
+
+#toast {
+  position: fixed;
+  top: var(--space-md);
+  left: 50%;
+  transform: translateX(-50%) translateY(-160%);
+  background: var(--color-paper-2);
+  border: var(--rule-hair) solid var(--color-rule);
+  color: var(--color-ink);
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--text-s);
+  max-width: calc(100% - var(--space-lg));
+  opacity: 0;
+  visibility: hidden;
+  transition: transform var(--dur-med) var(--ease-out), opacity var(--dur-med) var(--ease-out), visibility var(--dur-med);
+  z-index: var(--z-toast);
+  pointer-events: none;
+}
+#toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
+
+@media (max-width: 860px) {
+  .hero-in { grid-template-columns: minmax(0, 1fr); }
+  .drop { margin-top: var(--space-lg); }
+  .opt-row { gap: var(--space-lg); }
+}
+@media (max-width: 600px) {
+  h1 { font-size: clamp(30px, 8vw, 40px); }
+  .file-row .k { flex-basis: 100%; }
+  .fdel { margin-left: 0; }
+  .drop .btn { width: 100%; }
+  .seg { width: 100%; }
+  .seg button { flex: 1; justify-content: center; }
+  .fmt-list { margin-top: var(--space-md); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
-  .crumb a:hover { color: var(--green); border-color: var(--green); }
-  .crumb .sep { color: var(--line-2); }
-  .crumb .cur { color: var(--ink-2); }
-
-  h1 { font-size: 25px; font-weight: 600; letter-spacing: -.3px; color: var(--ink); margin-bottom: 10px; }
-  .sub { font-size: 13px; line-height: 1.7; color: var(--muted); margin-bottom: 34px; }
-
-  #dropzone {
-    border: 1px dashed var(--line-2); background: var(--surface);
-    padding: 52px 24px; text-align: center; cursor: pointer;
-    transition: border-color .18s, background .18s;
-  }
-  #dropzone:hover, #dropzone.drag { border-color: var(--green); background: var(--green-soft); }
-  #dropzone .icon { font-size: 34px; margin-bottom: 14px; opacity: .9; }
-  #dropzone .t1 { font-size: 14px; font-weight: 500; color: var(--ink-2); margin-bottom: 6px; }
-  #dropzone .t2 { font-size: 12px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
-  .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 10px 22px; font-size: 13px; font-family: inherit;
-    background: var(--surface); color: var(--ink-2); border: 1px solid var(--line-2);
-    cursor: pointer; transition: border-color .15s, color .15s, background .15s;
-  }
-  .btn:hover { border-color: var(--green); color: var(--green); }
-  .btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; font-weight: 500; }
-  .btn.primary:hover { background: #000; border-color: #000; color: #fff; }
-  .btn.gold { background: var(--green); border-color: var(--green); color: #fff; font-weight: 500; }
-  .btn.gold:hover { background: var(--green-dark); border-color: var(--green-dark); color: #fff; }
-  .btn:disabled { background: #efeff1; border-color: #efeff1; color: #b6b9bf; cursor: not-allowed; }
-  input[type=file] { display: none; }
-
-  #panel { display: none; margin-top: 30px; }
-
-  .file-card {
-    display: flex; align-items: center; gap: 14px; padding: 16px 18px;
-    border: 1px solid var(--line); background: var(--surface);
-    margin-bottom: 26px;
-  }
-  .file-card .ficon { font-size: 22px; flex-shrink: 0; opacity: .85; }
-  .file-card .finfo { flex: 1; min-width: 0; }
-  .file-card .fname { font-size: 13.5px; font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .file-card .fmeta { font-size: 12px; color: var(--muted); margin-top: 4px; }
-  .file-card .fdel {
-    border: none; background: none; color: var(--muted); cursor: pointer; padding: 6px 8px;
-    font-size: 14px; flex-shrink: 0; transition: color .15s;
-  }
-  .file-card .fdel:hover { color: #c0504d; }
-
-  .opt-row { display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-end; margin-bottom: 26px; }
-  .opt { display: flex; flex-direction: column; gap: 8px; }
-  .opt label { font-size: 12px; color: var(--muted); }
-  .seg { display: inline-flex; border: 1px solid var(--line-2); background: var(--surface); padding: 2px; gap: 2px; }
-  .seg button {
-    border: none; background: none; color: var(--ink-2); cursor: pointer; padding: 8px 18px;
-    font-size: 12.5px; font-family: inherit; transition: background .15s, color .15s;
-  }
-  .seg button:hover { color: var(--green); }
-  .seg button.active { background: var(--ink); color: #fff; font-weight: 500; }
-  select {
-    padding: 9px 12px; font-size: 13px; font-family: inherit; background: var(--surface);
-    border: 1px solid var(--line-2); color: var(--ink); outline: none; cursor: pointer;
-  }
-  select:focus { border-color: var(--green); }
-
-  .action { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-
-  #progress { display: none; margin-top: 26px; }
-  .pbar-box { height: 3px; background: #e9e9ec; overflow: hidden; margin-bottom: 10px; }
-  .pbar-fill { height: 100%; width: 0%; background: var(--green); transition: width .15s; }
-  .ptext { font-size: 12px; color: var(--muted); }
-
-  .hint {
-    font-size: 12px; color: var(--muted); line-height: 1.9; margin-top: 30px;
-    padding-top: 22px; border-top: 1px solid var(--line);
-  }
-  .hint b { color: var(--ink-2); font-weight: 600; }
-
-  footer { text-align: center; font-size: 12px; color: var(--muted); padding: 20px 16px 34px; }
-
-  #toast {
-    position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-100px);
-    background: var(--ink); color: #fff; padding: 11px 22px; font-size: 13px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.18); transition: transform .32s cubic-bezier(.2,.7,.3,1);
-    z-index: 99; pointer-events: none;
-  }
-  #toast.show { transform: translateX(-50%) translateY(0); }
-
-  @media (max-width: 560px) {
-    .wrap { padding: 28px 18px 40px; }
-    h1 { font-size: 21px; }
-    #dropzone { padding: 38px 18px; }
-    .crumb { margin-bottom: 22px; }
-  }
+}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <nav class="crumb">
-    <a href="/">🏠 首页</a>
-    <span class="sep">/</span>
-    <span class="cur">视频提取音频</span>
-  </nav>
 
-  <h1>🎬 视频提取音频</h1>
-  <p class="sub">拖入 mp4 / mov / webm 等视频文件，提取其中的音频并导出 mp3 或 wav · 全程本地处理，文件不上传</p>
-
-  <div id="dropzone">
-    <div class="icon">🎞️</div>
-    <div class="t1">将视频文件拖到此处</div>
-    <div class="t2">支持 mp4、m4v、mov、webm 等视频，也支持 mp3、wav 等音频转码</div>
-    <button class="btn primary" id="pickBtn">📁 选择视频文件</button>
+<header class="nav">
+  <div class="nav-in">
+    <span class="brand">视频提取音频</span>
+    <nav class="nav-links">
+      <a href="/">首页</a>
+    </nav>
   </div>
-  <input type="file" id="fileInput" multiple accept="video/*,audio/*,.mp4,.m4v,.mov,.webm,.m4a,.aac,.3gp,.mp3,.wav,.ogg,.flac" />
+</header>
 
-  <div id="panel">
-    <div class="file-card">
-      <span class="ficon">🎬</span>
-      <div class="finfo">
-        <div class="fname" id="fName">-</div>
-        <div class="fmeta" id="fMeta">-</div>
-      </div>
-      <button class="fdel" id="fDel" title="移除">✕</button>
-    </div>
-
-    <div class="opt-row">
-      <div class="opt">
-        <label>输出格式</label>
-        <div class="seg" id="fmtSeg">
-          <button data-fmt="wav" class="active">WAV（无损）</button>
-          <button data-fmt="mp3">MP3（压缩）</button>
+<main>
+  <section class="hero">
+    <div class="wrap hero-in">
+      <div>
+        <h1>视频提取音频</h1>
+        <p class="lede">拖入 mp4 / mov / webm 等视频，取出里面的音轨，导出 mp3 或 wav。</p>
+        <p class="note">全程在浏览器本地处理，文件不上传。</p>
+        <div class="fmt-list">
+          <span>MP4</span><span>M4V</span><span>MOV</span><span>WEBM</span><span>M4A</span><span>AAC</span><span>3GP</span>
         </div>
       </div>
-      <div class="opt" id="bitrateOpt" style="display:none;">
-        <label>MP3 比特率</label>
-        <select id="bitrate">
-          <option value="128">128 kbps</option>
-          <option value="192" selected>192 kbps</option>
-          <option value="320">320 kbps</option>
-        </select>
+      <div id="dropzone" class="drop ticks">
+        <div class="drop-k">输入文件</div>
+        <div class="drop-line">将视频拖到此处</div>
+        <div class="drop-note">也可直接转码 mp3、wav 等音频</div>
+        <button class="btn btn--primary" id="pickBtn">选择视频文件</button>
       </div>
+      <input type="file" id="fileInput" multiple accept="video/*,audio/*,.mp4,.m4v,.mov,.webm,.m4a,.aac,.3gp,.mp3,.wav,.ogg,.flac" />
     </div>
+  </section>
 
-    <div class="action">
-      <button class="btn gold" id="extractBtn">🎧 提取音频</button>
-    </div>
+  <div id="panel">
+    <section>
+      <div class="wrap">
+        <div class="file-row">
+          <span class="k">文件</span>
+          <span class="fname" id="fName">-</span>
+          <span class="fmeta measure" id="fMeta">-</span>
+          <button class="fdel" id="fDel" title="移除" aria-label="移除文件">✕</button>
+        </div>
+      </div>
+    </section>
 
-    <div id="progress">
-      <div class="pbar-box"><div class="pbar-fill" id="pbarFill"></div></div>
-      <div class="ptext" id="ptext">处理中…</div>
+    <section class="sec">
+      <div class="wrap">
+        <h2 class="sec-head">输出</h2>
+        <div class="opt-row">
+          <div class="opt">
+            <span class="k">格式</span>
+            <div class="seg" id="fmtSeg">
+              <button data-fmt="wav" class="active">WAV 无损</button>
+              <button data-fmt="mp3">MP3 压缩</button>
+            </div>
+          </div>
+          <div class="opt" id="bitrateOpt" style="display:none;">
+            <span class="k">比特率</span>
+            <select id="bitrate">
+              <option value="128">128 kbps</option>
+              <option value="192" selected>192 kbps</option>
+              <option value="320">320 kbps</option>
+            </select>
+          </div>
+        </div>
+        <div class="action">
+          <button class="btn btn--primary" id="extractBtn">提取音频</button>
+        </div>
+        <div id="progress">
+          <div class="meter"><span id="pbarFill"></span></div>
+          <p class="ptext" id="ptext">处理中</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="wrap">
+      <p class="hint">
+        <b>说明：</b>此功能在浏览器本地完成，音频不经过服务器。WAV 为无损格式，体积较大；MP3 为有损压缩，体积小、更通用。MP3 编码需要联网加载 lamejs 编码库，若加载失败可改用 WAV。长视频建议先分段，超大文件可能因内存不足而失败。
+      </p>
     </div>
   </div>
+</main>
 
-  <div class="hint">
-    <b>说明：</b>此功能在浏览器本地完成，音频不经过服务器。WAV 为无损格式（体积较大），MP3 为有损压缩（体积小、更通用）。MP3 编码需要联网加载 lamejs 编码库；若加载失败可改用 WAV。<br>
-    长视频建议先分段，超大文件可能因内存不足而失败。
-  </div>
-</div>
-
-<footer>视频提取音频 · 纯本地处理 · 刷新后不保留任何文件</footer>
+<footer><div class="foot-in">纯本地处理，刷新后不保留任何文件</div></footer>
 <div id="toast"></div>
 
 <script>
+
 (function () {
   'use strict';
 
@@ -210,6 +512,8 @@
   var outputFmt = 'wav';
 
   var $ = function (id) { return document.getElementById(id); };
+
+  function setBar(p) { $('pbarFill').style.transform = 'scaleX(' + (p / 100) + ')'; }
 
   /* ---------- toast ---------- */
   var toastTimer;
@@ -241,8 +545,9 @@
     currentFile = file;
     audioBuffer = null;
     $('fName').textContent = file.name;
-    $('fMeta').textContent = fmtSize(file.size) + ' · 等待解码';
+    $('fMeta').textContent = fmtSize(file.size) + ' / 等待解码';
     $('panel').style.display = 'block';
+    document.body.classList.add('has-file');
     $('extractBtn').disabled = false;
   }
 
@@ -406,31 +711,31 @@
     btn.disabled = true;
     var prog = $('progress');
     prog.style.display = 'block';
-    $('pbarFill').style.width = '0%';
+    setBar(0);
     $('ptext').textContent = '正在解码音轨…';
 
     var run = function () {
       return Promise.resolve(audioBuffer || decodeFile(currentFile))
         .then(function (buf) {
           audioBuffer = buf;
-          $('fMeta').textContent = fmtSize(currentFile.size) + ' · 时长 ' + fmtTime(buf.duration)
-            + ' · ' + buf.numberOfChannels + ' 声道 · ' + (buf.sampleRate / 1000).toFixed(1) + ' kHz';
+          $('fMeta').textContent = fmtTime(buf.duration) + ' / ' + buf.numberOfChannels + ' 声道 / '
+            + (buf.sampleRate / 1000).toFixed(1) + ' kHz / ' + fmtSize(currentFile.size);
           if (outputFmt === 'wav') {
             $('ptext').textContent = '正在生成 WAV…';
-            $('pbarFill').style.width = '100%';
+            setBar(100);
             return encodeWav(buf);
           } else {
             $('ptext').textContent = '正在编码 MP3（可能耗时）…';
-            $('pbarFill').style.width = '5%';
+            setBar(5);
             return ensureLame().then(function () {
               return encodeMp3(buf, parseInt($('bitrate').value, 10), function (p) {
-                $('pbarFill').style.width = Math.round(5 + p * 90) + '%';
+                setBar(5 + p * 90);
               });
             });
           }
         })
         .then(function (blob) {
-          $('pbarFill').style.width = '100%';
+          setBar(100);
           $('ptext').textContent = '完成，开始下载…';
           var outName = baseName(currentFile.name) + '.' + outputFmt;
           download(blob, outName);
@@ -460,6 +765,7 @@
   $('fDel').addEventListener('click', function () {
     currentFile = null;
     audioBuffer = null;
+    document.body.classList.remove('has-file');
     $('panel').style.display = 'none';
     $('fileInput').value = '';
   });
