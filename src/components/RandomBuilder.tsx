@@ -1,8 +1,10 @@
-import { type FC, useState, useCallback } from 'react'
+import { type FC, useState, useCallback, useEffect } from 'react'
 import { Shuffle, Loader2, Download } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { parseYdkContent, mergeDecks, downloadYdk } from '../utils/ydkParser'
+import { fetchCardInfos, type CardInfo } from '../utils/cardInfo'
 import type { YdkDeck } from '../types'
+import DeckSection from './DeckSection'
 
 /* ========== 卡组资源清单 ========== */
 
@@ -70,6 +72,20 @@ const RandomBuilder: FC = () => {
   const [selectedInfo, setSelectedInfo] = useState<SelectedInfo | null>(null)
 
   const { mergeResult, setMergeResult } = useStore()
+  const [infos, setInfos] = useState<Record<number, CardInfo>>({})
+
+  useEffect(() => {
+    if (!mergeResult) {
+      setInfos({})
+      return
+    }
+    let cancelled = false
+    const ids = [...mergeResult.main, ...mergeResult.extra, ...mergeResult.side].map(card => card.id)
+    fetchCardInfos(ids).then(map => {
+      if (!cancelled) setInfos(map)
+    })
+    return () => { cancelled = true }
+  }, [mergeResult])
 
   const handleGenerate = useCallback(async () => {
     setIsGenerating(true)
@@ -266,28 +282,28 @@ const RandomBuilder: FC = () => {
             </button>
           </div>
 
-          <div className="grid grid-cols-3 border border-line bg-surface">
-            <div className="p-4 border-r border-line">
-              <p className="text-xs text-muted mb-2">主卡组</p>
-              <span className="text-[22px] font-semibold font-mono text-ink leading-none">
-                {mergeResult.totalMain}
-              </span>
-              <span className="text-xs text-muted ml-1.5">张</span>
-            </div>
-            <div className="p-4 border-r border-line">
-              <p className="text-xs text-muted mb-2">额外卡组</p>
-              <span className="text-[22px] font-semibold font-mono text-ink leading-none">
-                {mergeResult.totalExtra}
-              </span>
-              <span className="text-xs text-muted ml-1.5">张</span>
-            </div>
-            <div className="p-4">
-              <p className="text-xs text-muted mb-2">备牌</p>
-              <span className="text-[22px] font-semibold font-mono text-ink leading-none">
-                {mergeResult.totalSide}
-              </span>
-              <span className="text-xs text-muted ml-1.5">张</span>
-            </div>
+          <div className="flex flex-col gap-2.5">
+            <DeckSection
+              title="主卡组"
+              tag="#main"
+              cards={mergeResult.main}
+              total={mergeResult.totalMain}
+              infos={infos}
+            />
+            <DeckSection
+              title="额外卡组"
+              tag="#extra"
+              cards={mergeResult.extra}
+              total={mergeResult.totalExtra}
+              infos={infos}
+            />
+            <DeckSection
+              title="备牌"
+              tag="!side"
+              cards={mergeResult.side}
+              total={mergeResult.totalSide}
+              infos={infos}
+            />
           </div>
         </div>
       )}
