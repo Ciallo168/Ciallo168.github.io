@@ -42,6 +42,8 @@ export function cardImageUrl(id: number): string {
 interface CardsetEntry {
   id?: number
   cid?: number
+  /** 异画版本：id 仍为原画卡号，altart 为实际请求的异画卡号 */
+  altart?: number
   text?: { name?: string; cn_name?: string; types?: string; desc?: string }
 }
 
@@ -59,7 +61,9 @@ async function requestChunk(ids: number[]): Promise<void> {
     const data = await resp.json() as Record<string, CardsetEntry>
     for (const key of Object.keys(data)) {
       const entry = data[key]
-      const id = Number(entry?.id ?? key)
+      // 异画条目返回的 id 是原画卡号，需用 altart 作为缓存键，否则异画永远查不到信息
+      const altart = Number(entry?.altart ?? 0)
+      const id = altart > 0 ? altart : Number(entry?.id ?? key)
       const name = entry?.text?.name || entry?.text?.cn_name
       if (!id || !name) continue
       cache[String(id)] = {
